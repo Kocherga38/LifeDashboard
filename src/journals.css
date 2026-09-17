@@ -1,0 +1,280 @@
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 204px;
+  flex-shrink: 0;
+  background: #15181f;
+  border-right: 1px solid #282e38;
+  padding: 32px 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.brand {
+  padding: 0 12px 30px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+.brand span {
+  color: var(--accent);
+}
+.brand small {
+  font-weight: 400;
+  letter-spacing: 0;
+  margin-top: 10px;
+  font-size: 11px;
+}
+.sidebar nav {
+  display: grid;
+  gap: 6px;
+}
+.sidebar nav button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: transparent;
+  color: #9da5b6;
+  text-align: left;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 12px 14px;
+}
+.sidebar nav button.selected {
+  background: #b6f36b14;
+  color: #c4f78e;
+}
+.sidebar nav button > span {
+  font-size: 18px;
+  width: 20px;
+  text-align: center;
+}
+.sidebar-footer {
+  margin-top: auto;
+  font-size: 11px;
+  color: #8f99ab;
+  padding: 20px 10px 0;
+  line-height: 1.7;
+}
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  margin-right: 7px;
+}
+.workspace {
+  flex: 1;
+  min-width: 0;
+}
+.workspace main {
+  padding: 40px 32px;
+  max-width: 1450px;
+}
+h1 {
+  font-size: 36px;
+}
+.journal-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.journal-chart,
+.journal-table {
+  margin-top: 22px;
+}
+.journal-hint {
+  line-height: 1.6;
+  font-size: 13px;
+}
+.note-cell {
+  min-width: 220px;
+  max-width: 320px;
+  white-space: normal !important;
+}
+.journal-table td {
+  white-space: nowrap;
+  font-size: 13px;
+}
+.journal-table th {
+  min-width: 95px;
+}
+.exercise-filter {
+  max-width: 300px;
+  margin-bottom: 22px;
+}
+.meal-summary {
+  margin-bottom: 22px;
+}
+.meal-summary .section-heading input {
+  width: auto;
+}
+.nutrient-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.nutrient-grid strong {
+  font-size: 27px;
+}
+.meal-summary details {
+  margin-top: 24px;
+}
+summary {
+  cursor: pointer;
+  color: #b7c0d0;
+  font-size: 13px;
+}
+.sim-result {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  color: var(--accent);
+}
+.import-counts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+  margin: 24px 0 30px;
+}
+.import-counts strong {
+  font-size: 32px;
+}
+.download-button {
+  display: inline-block;
+  padding: 13px 18px;
+  border: 1px solid #363e4b;
+  border-radius: 12px;
+  color: #c2f28b;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.error-detail {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #ff9292;
+  background: #101217;
+  padding: 18px;
+  border-radius: 12px;
+}
+.form-card > small {
+  margin-top: 18px;
+  line-height: 1.6;
+}
+.operation-details {
+  color: #919cad;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.workspace .summary {
+  gap: 16px;
+}
+.workspace .card {
+  border-color: #2b313d;
+}
+.workspace .big-number {
+  font-size: clamp(22px, 2.5vw, 36px);
+}
+.workspace header .muted {
+  max-width: 630px;
+  line-height: 1.6;
+}
+.workspace .chart-box {
+  min-width: 0;
+}
+.workspace .message {
+  line-height: 1.5;
+}
+.workspace a:hover {
+  opacity: 0.85;
+}
+.table-scroll {
+  max-height: 560px;
+}
+.table-scroll thead {
+  position: sticky;
+  top: 0;
+  background: #191d25;
+  z-index: 1;
+}
+.table-scroll thead th {
+  padding-top: 10px;
+}
+@media (max-width: 1150px) {
+  .sidebar {
+    width: 176px;
+    padding: 24px 12px;
+  }
+  .workspace main {
+    padding: 32px 24px;
+  }
+  .workspace header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .workspace .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+  .workspace .columns {
+    grid-template-columns: 1fr;
+  }
+  .journal-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 750px) {
+  .app-shell {
+    display: block;
+  }
+  .sidebar {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 18px;
+  }
+  .sidebar nav {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .sidebar nav button {
+    padding: 8px 10px;
+  }
+  .brand {
+    padding-bottom: 15px;
+  }
+  .sidebar-footer {
+    display: none;
+  }
+  .nutrient-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .import-counts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .journal-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.meal-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 20px 0;
+  font-size: 12px;
+  color: #969eaf;
+}
+.meal-preview strong {
+  color: #c4f78e;
+}
+.detail-fields {
+  margin-top: 18px;
+}

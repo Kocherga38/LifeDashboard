@@ -1,0 +1,105 @@
+import pg from 'pg'
+import { userInfo } from 'node:os'
+
+export interface Queryable {
+  query(
+    text: string,
+    values?: unknown[]
+  ): Promise<{ rows: Record<string, any>[]; rowCount?: number | null }>
+}
+export interface DB extends Queryable {
+  connect(): Promise<Queryable & { release(): void }>
+}
+export function connectionOptions() {
+  return process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 4000 }
+    : {
+        host: process.env.PGHOST || '127.0.0.1',
+        port: Number(process.env.PGPORT || 5432),
+        database: process.env.PGDATABASE || 'life_dashboard',
+        user: process.env.PGUSER || userInfo().username,
+        ...(process.env.PGPASSWORD ? { password: process.env.PGPASSWORD } : {}),
+        connectionTimeoutMillis: 4000
+      }
+}
+export async function openDatabase() {
+  const options = connectionOptions()
+  const pool = new pg.Pool(options)
+  try {
+    await pool.query('SELECT 1')
+  } catch (error) {
+    if ((error as { code?: string }).code !== '3D000' || process.env.DATABASE_URL) {
+      await pool.end()
+      throw error
+    }
+    const admin = new pg.Pool({ ...options, database: 'postgres' })
+    try {
+      const name = process.env.PGDATABASE || 'life_dashboard'
+      await admin.query(`CREATE DATABASE "${name.replaceAll('"', '""')}"`)
+    } catch (e) {
+      if ((e as { code?: string }).code !== '42P04') throw e
+    } finally {
+      await admin.end()
+    }
+    await pool.query('SELECT 1')
+  }
+  pool.on('error', (e) => console.error('Соединение с PostgreSQL:', e.message))
+  return pool
+}
+export async function migrate(db: DB) {
+  const client = await db.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS expenses (id UUID PRIMARY KEY, title VARCHAR(100) NOT NULL, amount NUMERIC(12,2) NOT NULL CHECK(amount>0), category VARCHAR(100) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(
+      `ALTER TABLE expenses ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'expense' CHECK(type IN ('expense','income'))`
+    )
+    await client.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS operation_date DATE`)
+    await client.query(
+      `UPDATE expenses SET operation_date=(created_at AT TIME ZONE 'Europe/Moscow')::date WHERE operation_date IS NULL`
+    )
+    await client.query(`ALTER TABLE expenses ALTER COLUMN operation_date SET NOT NULL`)
+    for (const column of ['subcategory', 'counterparty', 'note'])
+      await client.query(
+        `ALTER TABLE expenses ADD COLUMN IF NOT EXISTS ${column} TEXT NOT NULL DEFAULT ''`
+      )
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS expenses_operation_date_idx ON expenses(operation_date)`
+    )
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS budgets(id UUID PRIMARY KEY,category VARCHAR(100) NOT NULL,amount NUMERIC(12,2) NOT NULL CHECK(amount>0),month DATE NOT NULL CHECK(EXTRACT(DAY FROM month)=1), UNIQUE(month,category))`
+    )
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS journal_entries(id UUID PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('shifts','weights','measurements','products','meals','workouts')),data JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS journal_kind_idx ON journal_entries(kind)`)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS tasks(id UUID PRIMARY KEY,title VARCHAR(200) NOT NULL,task_date DATE NOT NULL,completed BOOLEAN NOT NULL DEFAULT FALSE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_type TEXT NOT NULL DEFAULT 'none' CHECK(recurrence_type IN ('none','interval','weekdays'))`)
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS interval_days INTEGER`)
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS weekdays JSONB NOT NULL DEFAULT '[]'::jsonb`)
+    await client.query(`CREATE INDEX IF NOT EXISTS tasks_date_idx ON tasks(task_date)`)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS task_occurrences(task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,occurrence_date DATE NOT NULL,completed BOOLEAN NOT NULL DEFAULT FALSE,PRIMARY KEY(task_id,occurrence_date))`
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS task_occurrences_date_idx ON task_occurrences(occurrence_date)`)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value JSONB NOT NULL)`
+    )
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS import_batches(hash TEXT PRIMARY KEY,filename TEXT NOT NULL,report JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS imported_rows(source TEXT PRIMARY KEY,record_id UUID NOT NULL)`
+    )
+    await client.query('COMMIT')
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
+}
