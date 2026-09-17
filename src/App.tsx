@@ -2,17 +2,25 @@ import { lazy, Suspense, useState } from 'react'
 import Operations from './Operations'
 import DataPage from './DataPage'
 import Calendar from './Calendar'
+import Notes from './Notes'
+import Diary from './Diary'
+import Flashcards from './Flashcards'
+import Habits from './Habits'
 import ErrorBoundary from './ErrorBoundary'
 import type { Kind } from '../shared/journals'
 import './analytics.css'
 import './journals.css'
 const Analytics = lazy(() => import('./Analytics'))
 const Journal = lazy(() => import('./Journal'))
-type Tab = 'operations' | 'analytics' | 'calendar' | 'data' | Kind
+type Tab = 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'data' | Kind
 const tabs: { key: Tab; label: string; icon: string }[] = [
   { key: 'operations', label: 'Операции', icon: '↗' },
   { key: 'analytics', label: 'Аналитика', icon: '◷' },
   { key: 'calendar', label: 'Календарь', icon: '□' },
+  { key: 'notes', label: 'Заметки', icon: '≡' },
+  { key: 'diary', label: 'Дневник', icon: '✦' },
+  { key: 'flashcards', label: 'Карточки', icon: '◫' },
+  { key: 'habits', label: 'Трекер', icon: '✓' },
   { key: 'shifts', label: 'Смены', icon: '▦' },
   { key: 'weights', label: 'Вес', icon: '↝' },
   { key: 'measurements', label: 'Замеры', icon: '↔' },
@@ -62,6 +70,14 @@ export default function App() {
               <Analytics />
             ) : tab === 'calendar' ? (
               <Calendar />
+            ) : tab === 'notes' ? (
+              <Notes />
+            ) : tab === 'diary' ? (
+              <Diary />
+            ) : tab === 'flashcards' ? (
+              <Flashcards />
+            ) : tab === 'habits' ? (
+              <Habits />
             ) : tab === 'data' ? (
               <DataPage />
             ) : (
