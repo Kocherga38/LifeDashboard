@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, money } from './api'
 import './overview.css'
 
-type Task = { id: string; title: string; date: string; completed: boolean }
+type Task = { id: string; title: string; date: string; completed: boolean; color: string }
 type Habit = { id: string; name: string }
 type Mark = { habitId: string; date: string }
 type Expense = { id: string; amount: number; type: 'expense' | 'income'; date: string }
@@ -87,7 +87,7 @@ export default function WeeklyReview() {
     <section className="review-columns">
       <article className="card weekly-section">
         <div className="section-heading"><h2>Задачи недели</h2><span className="badge">{done}/{tasks.length}</span></div>
-        <div className="overview-list">{tasks.length ? tasks.map((t)=><div className={`review-task ${t.completed?'done':''}`} key={t.id+t.date}><span>{t.completed?'✓':'○'}</span><div><strong>{t.title}</strong><small>{parse(t.date).toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'short'})}</small></div></div>) : <p className="muted">Задач не было.</p>}</div>
+        <div className="overview-list">{tasks.length ? tasks.map((t)=><div className={`review-task color-${t.color ?? 'default'} ${t.completed?'done':''}`} key={t.id+t.date}><span>{t.completed?'✓':'○'}</span><div><strong>{t.title}</strong><small>{parse(t.date).toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'short'})}</small></div></div>) : <p className="muted">Задач не было.</p>}</div>
       </article>
       <article className="card weekly-section">
         <div className="section-heading"><h2>Короткий итог</h2></div>

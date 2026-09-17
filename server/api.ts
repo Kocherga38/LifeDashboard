@@ -18,6 +18,12 @@ const amountValid = (n: unknown): n is number =>
 
 type RecurrenceType = 'none' | 'interval' | 'weekdays'
 type Recurrence = { type: RecurrenceType; intervalDays?: number; weekdays?: number[] }
+const taskColors = new Set(['default','red','orange','yellow','green','blue','purple','pink','gray'])
+const taskColorInput = (raw: unknown) => {
+  const color = raw == null ? 'default' : String(raw)
+  if (!taskColors.has(color)) throw new Error('Некорректный цвет задачи.')
+  return color
+}
 const dateMs = (value: string) => {
   const [y, m, d] = value.split('-').map(Number)
   return Date.UTC(y, m - 1, d)
@@ -249,7 +255,7 @@ export function createApi(db: DB) {
       throw new Error('Выбери корректный период календаря.')
     const rows = (
       await db.query(
-        `SELECT id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays,created_at
+        `SELECT id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays,color,created_at
          FROM tasks
          WHERE (recurrence_type='none' AND task_date BETWEEN $1::date AND $2::date)
             OR (recurrence_type<>'none' AND task_date <= $2::date)
@@ -273,7 +279,7 @@ export function createApi(db: DB) {
     for (const row of rows) {
       const recurrence = recurrenceFromRow(row)
       if (!recurrence) {
-        result.push({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: null })
+        result.push({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: null, color: row.color })
         continue
       }
       for (let ms = dateMs(String(from)); ms <= dateMs(String(to)); ms += 86400000) {
@@ -285,7 +291,8 @@ export function createApi(db: DB) {
           date,
           startDate: row.date,
           completed: completion.get(`${row.id}:${date}`) ?? false,
-          recurrence
+          recurrence,
+          color: row.color
         })
       }
     }
@@ -297,11 +304,12 @@ export function createApi(db: DB) {
       date = req.body?.date
     if (!textValid(title, 200) || !validDate(date)) throw new Error('Введи задачу и корректную дату.')
     const recurrence = recurrenceInput(req.body?.recurrence)
+    const color = taskColorInput(req.body?.color)
     const r = await db.query(
-      `INSERT INTO tasks(id,title,task_date,recurrence_type,interval_days,weekdays)
-       VALUES($1,$2,$3::date,$4,$5,$6::jsonb)
-       RETURNING id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays`,
-      [randomUUID(), title.trim(), date, recurrence.type, recurrence.intervalDays ?? null, JSON.stringify(recurrence.weekdays ?? [])]
+      `INSERT INTO tasks(id,title,task_date,recurrence_type,interval_days,weekdays,color)
+       VALUES($1,$2,$3::date,$4,$5,$6::jsonb,$7)
+       RETURNING id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays,color`,
+      [randomUUID(), title.trim(), date, recurrence.type, recurrence.intervalDays ?? null, JSON.stringify(recurrence.weekdays ?? []), color]
     )
     const row = r.rows[0]
     res.status(201).json({
@@ -310,7 +318,8 @@ export function createApi(db: DB) {
       date: row.date,
       startDate: row.date,
       completed: Boolean(row.completed),
-      recurrence: recurrenceFromRow(row)
+      recurrence: recurrenceFromRow(row),
+      color: row.color
     })
   })
   app.put('/api/tasks/:id', async (req, res) => {
@@ -320,7 +329,7 @@ export function createApi(db: DB) {
     if (typeof req.body?.completed === 'boolean') {
       const base = (
         await db.query(
-          `SELECT id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays FROM tasks WHERE id=$1`,
+          `SELECT id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays,color FROM tasks WHERE id=$1`,
           [id]
         )
       ).rows[0]
@@ -331,11 +340,11 @@ export function createApi(db: DB) {
       const recurrence = recurrenceFromRow(base)
       if (!recurrence) {
         const r = await db.query(
-          `UPDATE tasks SET completed=$1 WHERE id=$2 RETURNING id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays`,
+          `UPDATE tasks SET completed=$1 WHERE id=$2 RETURNING id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays,color`,
           [req.body.completed, id]
         )
         const row = r.rows[0]
-        res.json({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: null })
+        res.json({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: null, color: row.color })
         return
       }
       const date = req.body?.date
@@ -345,7 +354,7 @@ export function createApi(db: DB) {
          ON CONFLICT(task_id,occurrence_date) DO UPDATE SET completed=EXCLUDED.completed`,
         [id, date, req.body.completed]
       )
-      res.json({ id, title: base.title, date, startDate: base.date, completed: req.body.completed, recurrence })
+      res.json({ id, title: base.title, date, startDate: base.date, completed: req.body.completed, recurrence, color: base.color })
       return
     }
 
@@ -353,12 +362,13 @@ export function createApi(db: DB) {
       date = req.body?.date
     if (!textValid(title, 200) || !validDate(date)) throw new Error('Введи задачу и корректную дату.')
     const recurrence = recurrenceInput(req.body?.recurrence)
+    const color = taskColorInput(req.body?.color)
     const r = await db.query(
       `UPDATE tasks
-       SET title=$1,task_date=$2::date,recurrence_type=$3,interval_days=$4,weekdays=$5::jsonb,completed=CASE WHEN $3='none' THEN completed ELSE FALSE END
-       WHERE id=$6
-       RETURNING id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays`,
-      [title.trim(), date, recurrence.type, recurrence.intervalDays ?? null, JSON.stringify(recurrence.weekdays ?? []), id]
+       SET title=$1,task_date=$2::date,recurrence_type=$3,interval_days=$4,weekdays=$5::jsonb,color=$6,completed=CASE WHEN $3='none' THEN completed ELSE FALSE END
+       WHERE id=$7
+       RETURNING id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays,color`,
+      [title.trim(), date, recurrence.type, recurrence.intervalDays ?? null, JSON.stringify(recurrence.weekdays ?? []), color, id]
     )
     if (!r.rows.length) {
       res.status(404).json({ error: 'Задача уже удалена.' })
@@ -366,7 +376,7 @@ export function createApi(db: DB) {
     }
     if (recurrence.type === 'none') await db.query('DELETE FROM task_occurrences WHERE task_id=$1', [id])
     const row = r.rows[0]
-    res.json({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: recurrenceFromRow(row) })
+    res.json({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: recurrenceFromRow(row), color: row.color })
   })
   app.delete('/api/tasks/:id', async (req, res) => {
     const id = String(req.params.id)
