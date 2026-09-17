@@ -87,6 +87,28 @@ export async function migrate(db: DB) {
     )
     await client.query(`CREATE INDEX IF NOT EXISTS task_occurrences_date_idx ON task_occurrences(occurrence_date)`)
     await client.query(
+      `CREATE TABLE IF NOT EXISTS note_folders(id UUID PRIMARY KEY,name VARCHAR(120) NOT NULL,parent_id UUID REFERENCES note_folders(id) ON DELETE CASCADE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS notes(id UUID PRIMARY KEY,folder_id UUID REFERENCES note_folders(id) ON DELETE CASCADE,title VARCHAR(200) NOT NULL,content TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS notes_folder_idx ON notes(folder_id)`)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS diary_entries(id UUID PRIMARY KEY,entry_date DATE NOT NULL,title VARCHAR(200) NOT NULL DEFAULT '',content TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS diary_date_idx ON diary_entries(entry_date DESC)`)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS flashcards(id UUID PRIMARY KEY,deck VARCHAR(100) NOT NULL DEFAULT 'Основная',front TEXT NOT NULL,back TEXT NOT NULL,due_date DATE NOT NULL DEFAULT CURRENT_DATE,interval_days INTEGER NOT NULL DEFAULT 0,ease_factor NUMERIC(4,2) NOT NULL DEFAULT 2.50,repetitions INTEGER NOT NULL DEFAULT 0,lapses INTEGER NOT NULL DEFAULT 0,last_reviewed_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS flashcards_due_idx ON flashcards(due_date)`)
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS habits(id UUID PRIMARY KEY,name VARCHAR(120) NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+    )
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS habit_marks(habit_id UUID NOT NULL REFERENCES habits(id) ON DELETE CASCADE,mark_date DATE NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(habit_id,mark_date))`
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS habit_marks_date_idx ON habit_marks(mark_date)`)
+    await client.query(
       `CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value JSONB NOT NULL)`
     )
     await client.query(
