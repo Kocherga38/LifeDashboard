@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { createApi } from './api.js'
+import { createPersonalApi } from './personal-api.js'
 import type { DB } from './database.js'
 
 function openBrowser(url: string) {
@@ -41,6 +42,7 @@ export async function startServer(
     }
     next()
   })
+  app.use(createPersonalApi(db))
   app.use(createApi(db))
   let port = preferred
   for (; port < preferred + 20; port++) {
