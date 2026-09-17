@@ -14,10 +14,23 @@ type Task = {
   startDate?: string
   completed: boolean
   recurrence: Recurrence
+  color: TaskColor
 }
 
 type View = 'week' | 'month'
 type RepeatMode = 'none' | 'interval' | 'weekdays'
+type TaskColor = 'default' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'gray'
+const taskColors: { key: TaskColor; label: string }[] = [
+  { key: 'default', label: 'Без цвета' },
+  { key: 'red', label: 'Красный' },
+  { key: 'orange', label: 'Оранжевый' },
+  { key: 'yellow', label: 'Жёлтый' },
+  { key: 'green', label: 'Зелёный' },
+  { key: 'blue', label: 'Синий' },
+  { key: 'purple', label: 'Фиолетовый' },
+  { key: 'pink', label: 'Розовый' },
+  { key: 'gray', label: 'Серый' }
+]
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const months = [
@@ -80,6 +93,26 @@ function recurrencePayload(mode: RepeatMode, intervalDays: number, selected: num
   if (mode === 'interval') return { type: 'interval', intervalDays }
   if (mode === 'weekdays') return { type: 'weekdays', weekdays: selected }
   return { type: 'none' }
+}
+
+function ColorPicker({ value, onChange }: { value: TaskColor; onChange: (color: TaskColor) => void }) {
+  return (
+    <div className="task-color-picker" aria-label="Цвет задачи">
+      <span>Цвет</span>
+      <div className="task-color-options">
+        {taskColors.map((color) => (
+          <button
+            key={color.key}
+            type="button"
+            className={`task-color-option color-${color.key} ${value === color.key ? 'active' : ''}`}
+            aria-label={color.label}
+            title={color.label}
+            onClick={() => onChange(color.key)}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function RepeatControls({
@@ -154,12 +187,14 @@ export default function Calendar() {
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('none')
   const [intervalDays, setIntervalDays] = useState(1)
   const [repeatWeekdays, setRepeatWeekdays] = useState<number[]>([])
+  const [draftColor, setDraftColor] = useState<TaskColor>('default')
   const [editing, setEditing] = useState<Task | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDate, setEditDate] = useState('')
   const [editRepeatMode, setEditRepeatMode] = useState<RepeatMode>('none')
   const [editIntervalDays, setEditIntervalDays] = useState(1)
   const [editWeekdays, setEditWeekdays] = useState<number[]>([])
+  const [editColor, setEditColor] = useState<TaskColor>('default')
   const [saving, setSaving] = useState(false)
 
   const [from, to] = useMemo(() => rangeFor(view, anchor), [view, anchor])
@@ -213,6 +248,7 @@ export default function Calendar() {
     setRepeatMode('none')
     setIntervalDays(1)
     setRepeatWeekdays([])
+    setDraftColor('default')
   }
 
   function move(direction: -1 | 1) {
@@ -239,6 +275,7 @@ export default function Calendar() {
     setRepeatMode('none')
     setIntervalDays(1)
     setRepeatWeekdays([(parseDate(date).getDay() + 6) % 7])
+    setDraftColor('default')
   }
 
   async function addTask(event: FormEvent, date: string) {
@@ -254,7 +291,8 @@ export default function Calendar() {
         body: JSON.stringify({
           title,
           date,
-          recurrence: recurrencePayload(repeatMode, intervalDays, repeatWeekdays)
+          recurrence: recurrencePayload(repeatMode, intervalDays, repeatWeekdays),
+          color: draftColor
         })
       })
       resetAdd()
@@ -293,6 +331,7 @@ export default function Calendar() {
     setEditing(task)
     setEditTitle(task.title)
     setEditDate(task.startDate ?? task.date)
+    setEditColor(task.color ?? 'default')
     if (!task.recurrence) {
       setEditRepeatMode('none')
       setEditIntervalDays(1)
@@ -320,7 +359,8 @@ export default function Calendar() {
         body: JSON.stringify({
           title: editTitle.trim(),
           date: editDate,
-          recurrence: recurrencePayload(editRepeatMode, editIntervalDays, editWeekdays)
+          recurrence: recurrencePayload(editRepeatMode, editIntervalDays, editWeekdays),
+          color: editColor
         })
       })
       setEditing(null)
@@ -409,6 +449,7 @@ export default function Calendar() {
                           <span>Начало</span>
                           <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
                         </label>
+                        <ColorPicker value={editColor} onChange={setEditColor} />
                         <RepeatControls
                           mode={editRepeatMode}
                           setMode={setEditRepeatMode}
@@ -426,7 +467,7 @@ export default function Calendar() {
                         )}
                       </form>
                     ) : (
-                      <div className={`task-row ${task.completed ? 'done' : ''}`} key={`${task.id}:${task.date}`}>
+                      <div className={`task-row color-${task.color ?? 'default'} ${task.completed ? 'done' : ''}`} key={`${task.id}:${task.date}`}>
                         <label className="task-check-label" title={task.completed ? 'Вернуть задачу' : 'Выполнить'}>
                           <input className="task-checkbox" type="checkbox" checked={task.completed} onChange={() => toggle(task)} />
                           <span className="task-fake-check" aria-hidden="true" />
@@ -456,6 +497,7 @@ export default function Calendar() {
                         if (event.key === 'Escape') resetAdd()
                       }}
                     />
+                    <ColorPicker value={draftColor} onChange={setDraftColor} />
                     <RepeatControls
                       mode={repeatMode}
                       setMode={setRepeatMode}
