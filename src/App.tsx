@@ -6,14 +6,18 @@ import Notes from './Notes'
 import Diary from './Diary'
 import Flashcards from './Flashcards'
 import Habits from './Habits'
+import Today from './Today'
+import WeeklyReview from './WeeklyReview'
 import ErrorBoundary from './ErrorBoundary'
 import type { Kind } from '../shared/journals'
 import './analytics.css'
 import './journals.css'
 const Analytics = lazy(() => import('./Analytics'))
 const Journal = lazy(() => import('./Journal'))
-type Tab = 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'data' | Kind
+type Tab = 'today' | 'weekly' | 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'data' | Kind
 const tabs: { key: Tab; label: string; icon: string }[] = [
+  { key: 'today', label: 'Сегодня', icon: '●' },
+  { key: 'weekly', label: 'Обзор недели', icon: '◎' },
   { key: 'operations', label: 'Операции', icon: '↗' },
   { key: 'analytics', label: 'Аналитика', icon: '◷' },
   { key: 'calendar', label: 'Календарь', icon: '□' },
@@ -30,7 +34,7 @@ const tabs: { key: Tab; label: string; icon: string }[] = [
   { key: 'data', label: 'Данные', icon: '⇣' }
 ]
 export default function App() {
-  const [tab, setTab] = useState<Tab>('operations')
+  const [tab, setTab] = useState<Tab>('today')
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -64,7 +68,11 @@ export default function App() {
               </main>
             }
           >
-            {tab === 'operations' ? (
+            {tab === 'today' ? (
+              <Today onNavigate={(next) => setTab(next)} />
+            ) : tab === 'weekly' ? (
+              <WeeklyReview />
+            ) : tab === 'operations' ? (
               <Operations />
             ) : tab === 'analytics' ? (
               <Analytics />
