@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, money, today } from './api'
 import './overview.css'
 
-type Task = { id: string; title: string; date: string; completed: boolean }
+type Task = { id: string; title: string; date: string; completed: boolean; color: string }
 type Habit = { id: string; name: string }
 type Mark = { habitId: string; date: string }
 type Flashcard = { id: string; dueDate: string }
@@ -87,7 +87,7 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
         <div className="overview-block-head"><div><span className="kicker">ПЛАН</span><h2>Задачи</h2></div><button className="link-button" onClick={() => onNavigate('calendar')}>Календарь →</button></div>
         <div className="big-progress"><strong>{completedTasks}/{tasks.length}</strong><span>выполнено</span></div>
         <div className="overview-list">{tasks.length ? tasks.map((task) =>
-          <label className={`today-task ${task.completed ? 'done' : ''}`} key={task.id + task.date}>
+          <label className={`today-task color-${task.color ?? 'default'} ${task.completed ? 'done' : ''}`} key={task.id + task.date}>
             <input type="checkbox" checked={task.completed} onChange={() => toggleTask(task)} /><span>{task.title}</span>
           </label>
         ) : <p className="muted">На сегодня задач нет.</p>}</div>
