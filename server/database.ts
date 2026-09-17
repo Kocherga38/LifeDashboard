@@ -81,6 +81,7 @@ export async function migrate(db: DB) {
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_type TEXT NOT NULL DEFAULT 'none' CHECK(recurrence_type IN ('none','interval','weekdays'))`)
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS interval_days INTEGER`)
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS weekdays JSONB NOT NULL DEFAULT '[]'::jsonb`)
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT 'default'`)
     await client.query(`CREATE INDEX IF NOT EXISTS tasks_date_idx ON tasks(task_date)`)
     await client.query(
       `CREATE TABLE IF NOT EXISTS task_occurrences(task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,occurrence_date DATE NOT NULL,completed BOOLEAN NOT NULL DEFAULT FALSE,PRIMARY KEY(task_id,occurrence_date))`
