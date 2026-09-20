@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { buildFinancialForecast } from './financeForecast'
 
 type OperationType = 'expense' | 'income'
 
@@ -48,6 +49,49 @@ function money(value: number) {
 
 function total(items: Operation[]) {
   return items.reduce((sum, item) => sum + Math.round(item.amount * 100), 0) / 100
+}
+
+function addDays(date: string, amount: number) {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day + amount)).toISOString().slice(0, 10)
+}
+
+function endOfMonth(month: string) {
+  const [year, value] = month.split('-').map(Number)
+  return new Date(Date.UTC(year, value, 0)).toISOString().slice(0, 10)
+}
+
+function dateLabel(date: string) {
+  return date.split('-').reverse().join('.')
+}
+
+function daysBetween(from: string, to: string) {
+  const parts = (value: string) => value.split('-').map(Number)
+  const [fromYear, fromMonth, fromDay] = parts(from)
+  const [toYear, toMonth, toDay] = parts(to)
+  return Math.round(
+    (Date.UTC(toYear, toMonth - 1, toDay) - Date.UTC(fromYear, fromMonth - 1, fromDay)) /
+      86400000
+  )
+}
+
+function daysLabel(date: string, currentDate: string) {
+  const days = daysBetween(currentDate, date)
+  if (days === 0) return 'сегодня'
+  if (days === 1) return 'завтра'
+  const absolute = Math.abs(days)
+  const mod10 = absolute % 10
+  const mod100 = absolute % 100
+  const word = mod10 === 1 && mod100 !== 11 ? 'день' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'дня' : 'дней'
+  if (days < 0) return `просрочен на ${absolute} ${word}`
+  return `через ${days} ${word}`
+}
+
+function paymentsLabel(value: number) {
+  const mod10 = value % 10
+  const mod100 = value % 100
+  const word = mod10 === 1 && mod100 !== 11 ? 'платёж' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'платежа' : 'платежей'
+  return `${value} ${word}`
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -149,6 +193,22 @@ export default function Operations() {
   const incomeTotal = total(visible.filter((item) => item.type === 'income'))
   const expenseTotal = total(expenses)
   const balance = (Math.round(incomeTotal * 100) - Math.round(expenseTotal * 100)) / 100
+
+  const currentDate = today()
+  const periodOperations = operations.filter((item) => !month || item.date.startsWith(month))
+  const periodIncome = total(periodOperations.filter((item) => item.type === 'income'))
+  const periodExpenses = total(periodOperations.filter((item) => item.type === 'expense'))
+  const periodBalance =
+    (Math.round(periodIncome * 100) - Math.round(periodExpenses * 100)) / 100
+  const forecastStart = month && `${month}-01` > currentDate ? `${month}-01` : currentDate
+  const forecastEnd = month ? endOfMonth(month) : addDays(currentDate, 30)
+  const forecast = buildFinancialForecast(templates, periodBalance, forecastStart, forecastEnd)
+  const forecastWindow =
+    forecastStart > forecastEnd
+      ? 'Период завершён'
+      : month
+        ? `До ${dateLabel(forecastEnd)}`
+        : 'Следующие 30 дней'
 
   const breakdown = Array.from(new Set(expenses.map((item) => item.category)))
     .map((name) => ({
@@ -475,6 +535,72 @@ export default function Operations() {
             {loaded ? money(balance) : '—'}
           </div>
         </article>
+      </section>
+
+      <section className="forecast-section" aria-labelledby="forecast-title">
+        <div className="forecast-heading">
+          <h2 id="forecast-title">Обязательства и прогноз</h2>
+          <span className="badge">{forecastWindow}</span>
+        </div>
+        <div className="summary forecast-summary">
+          <article className="card forecast-card">
+            <p className="muted">Предстоящие обязательства</p>
+            <div className="big-number forecast-obligation">
+              {loaded
+                ? forecast.expenseTotal > 0
+                  ? `−${money(forecast.expenseTotal)}`
+                  : money(0)
+                : '—'}
+            </div>
+            {loaded && (
+              <small>
+                {paymentsLabel(forecast.paymentCount)}
+                {forecast.overdueCount > 0 ? ` · просрочено ${forecast.overdueCount}` : ''}
+                {forecast.incomeTotal > 0
+                  ? ` · ожидаемые доходы +${money(forecast.incomeTotal)}`
+                  : ''}
+              </small>
+            )}
+          </article>
+          <article className="card forecast-card">
+            <p className="muted">Прогноз после обязательств</p>
+            <div
+              className={`big-number ${forecast.forecastBalance < 0 ? 'negative' : 'positive'}`}
+            >
+              {loaded ? money(forecast.forecastBalance) : '—'}
+            </div>
+            {loaded && forecast.firstShortfall && (
+              <small className="forecast-warning">
+                К {dateLabel(forecast.firstShortfall.date)} по потоку не хватает{' '}
+                {money(forecast.firstShortfall.amount)}
+              </small>
+            )}
+            {loaded && !forecast.firstShortfall && forecast.paymentCount > 0 && (
+              <small>Все ближайшие обязательства покрыты.</small>
+            )}
+            {loaded && forecast.paymentCount === 0 && (
+              <small>Регулярных расходов в этом окне нет.</small>
+            )}
+          </article>
+          <article className="card forecast-card">
+            <p className="muted">Ближайший платёж</p>
+            <div className="big-number">
+              {loaded && forecast.nearestExpense ? money(forecast.nearestExpense.amount) : '—'}
+            </div>
+            {loaded && forecast.nearestExpense ? (
+              <small>
+                {forecast.nearestExpense.title} · {dateLabel(forecast.nearestExpense.date)} ·{' '}
+                {daysLabel(forecast.nearestExpense.date, currentDate)}
+              </small>
+            ) : (
+              loaded && <small>В выбранном окне платежей нет.</small>
+            )}
+          </article>
+        </div>
+        <p className="forecast-note">
+          Прогноз считает денежный поток периода, а не фактический остаток на карте
+          {search ? '; поиск на него не влияет' : ''}.
+        </p>
       </section>
 
       <section className={`card form-card ${editingId ? 'editing' : ''}`}>

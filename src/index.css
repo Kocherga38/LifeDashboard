@@ -73,6 +73,39 @@ small {
   margin-bottom: 20px;
 }
 
+.forecast-section {
+  margin-bottom: 20px;
+}
+.forecast-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: 2px 2px 12px;
+}
+.forecast-heading h2 {
+  margin: 0;
+}
+.forecast-summary {
+  margin-bottom: 10px;
+}
+.forecast-card small {
+  line-height: 1.4;
+}
+.forecast-obligation {
+  color: #f6c76f;
+}
+.forecast-warning {
+  color: #ff9292;
+  font-weight: 650;
+}
+.forecast-note {
+  margin: 0 2px;
+  color: #7f8798;
+  font-size: 12px;
+}
+
 .big-number {
   font-size: clamp(24px, 2.6vw, 38px);
   font-weight: 800;
