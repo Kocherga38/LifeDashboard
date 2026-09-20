@@ -72,6 +72,26 @@ export async function migrate(db: DB) {
       `CREATE TABLE IF NOT EXISTS budgets(id UUID PRIMARY KEY,category VARCHAR(100) NOT NULL,amount NUMERIC(12,2) NOT NULL CHECK(amount>0),month DATE NOT NULL CHECK(EXTRACT(DAY FROM month)=1), UNIQUE(month,category))`
     )
     await client.query(
+      `CREATE TABLE IF NOT EXISTS operation_templates(
+        id UUID PRIMARY KEY,
+        title VARCHAR(100) NOT NULL,
+        amount NUMERIC(12,2) NOT NULL CHECK(amount>0),
+        category VARCHAR(100) NOT NULL,
+        type TEXT NOT NULL DEFAULT 'expense' CHECK(type IN ('expense','income')),
+        subcategory TEXT NOT NULL DEFAULT '',
+        counterparty TEXT NOT NULL DEFAULT '',
+        note TEXT NOT NULL DEFAULT '',
+        template_kind TEXT NOT NULL DEFAULT 'quick' CHECK(template_kind IN ('quick','recurring')),
+        recurrence TEXT CHECK(recurrence IN ('weekly','monthly','yearly')),
+        next_date DATE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CHECK(
+          (template_kind='quick' AND recurrence IS NULL AND next_date IS NULL) OR
+          (template_kind='recurring' AND recurrence IS NOT NULL AND next_date IS NOT NULL)
+        )
+      )`
+    )
+    await client.query(
       `CREATE TABLE IF NOT EXISTS journal_entries(id UUID PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('shifts','weights','measurements','products','meals','workouts')),data JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
     )
     await client.query(`CREATE INDEX IF NOT EXISTS journal_kind_idx ON journal_entries(kind)`)

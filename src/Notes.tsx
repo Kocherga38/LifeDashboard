@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { api } from './api'
 import './personal.css'
 

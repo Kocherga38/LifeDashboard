@@ -7,6 +7,7 @@ import { isKind, validateEntry, validDate, nutrients } from '../shared/journals.
 
 const operationFields = `id,title,amount,category,type,subcategory,counterparty,note,to_char(operation_date,'YYYY-MM-DD') AS date`
 const budgetFields = `id,category,amount,to_char(month,'YYYY-MM') AS month`
+const templateFields = `id,title,amount,category,type,subcategory,counterparty,note,template_kind AS "templateKind",recurrence,to_char(next_date,'YYYY-MM-DD') AS "nextDate"`
 const serial = (r: Record<string, unknown>) => ({ ...r, amount: Number(r.amount) })
 const idValid = (s: string) => /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s)
 const monthValid = (s: unknown): s is string =>
@@ -95,6 +96,35 @@ function operationInput(raw: unknown) {
     counterparty: String(b.counterparty ?? '')
   }
 }
+function templateInput(raw: unknown) {
+  const operation = operationInput({ ...(raw as object), date: '2000-01-01' })
+  const b = raw as Record<string, unknown>
+  if (!['quick', 'recurring'].includes(String(b.templateKind)))
+    throw new Error('Выбери тип шаблона.')
+  const templateKind = b.templateKind === 'recurring' ? 'recurring' : 'quick'
+  const recurrence = templateKind === 'recurring' ? String(b.recurrence ?? '') : null
+  const nextDate = templateKind === 'recurring' ? b.nextDate : null
+  if (
+    templateKind === 'recurring' &&
+    (!['weekly', 'monthly', 'yearly'].includes(String(recurrence)) || !validDate(nextDate))
+  )
+    throw new Error('Для регулярного шаблона выбери периодичность и следующую дату.')
+  return { ...operation, templateKind, recurrence, nextDate }
+}
+function nextRecurringDate(date: string, recurrence: string) {
+  const [year, month, day] = date.split('-').map(Number)
+  if (recurrence === 'weekly') {
+    const d = new Date(Date.UTC(year, month - 1, day + 7))
+    return d.toISOString().slice(0, 10)
+  }
+  const targetMonth = recurrence === 'yearly' ? month - 1 : month
+  const targetYear = recurrence === 'yearly' ? year + 1 : year + Math.floor(targetMonth / 12)
+  const normalizedMonth = targetMonth % 12
+  const lastDay = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(targetYear, normalizedMonth, Math.min(day, lastDay)))
+    .toISOString()
+    .slice(0, 10)
+}
 async function bundle() {
   return JSON.parse(await readFile(new URL('../data/excel-import.json', import.meta.url), 'utf8'))
 }
@@ -171,6 +201,123 @@ export function createApi(db: DB) {
     if (!idValid(id)) throw new Error('Некорректный ID.')
     await db.query('DELETE FROM expenses WHERE id=$1', [id])
     res.status(204).end()
+  })
+  app.get('/api/templates', async (_req, res) =>
+    res.json(
+      (
+        await db.query(
+          `SELECT ${templateFields} FROM operation_templates ORDER BY template_kind,next_date NULLS LAST,created_at`
+        )
+      ).rows.map(serial)
+    )
+  )
+  app.post('/api/templates', async (req, res) => {
+    const b = templateInput(req.body)
+    const r = await db.query(
+      `INSERT INTO operation_templates(id,title,amount,category,type,subcategory,counterparty,note,template_kind,recurrence,next_date)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::date) RETURNING ${templateFields}`,
+      [
+        randomUUID(),
+        b.title,
+        b.amount.toFixed(2),
+        b.category,
+        b.type,
+        b.subcategory,
+        b.counterparty,
+        b.note,
+        b.templateKind,
+        b.recurrence,
+        b.nextDate
+      ]
+    )
+    res.status(201).json(serial(r.rows[0]))
+  })
+  app.put('/api/templates/:id', async (req, res) => {
+    const id = String(req.params.id)
+    if (!idValid(id)) throw new Error('Некорректный ID.')
+    const b = templateInput(req.body)
+    const r = await db.query(
+      `UPDATE operation_templates SET title=$1,amount=$2,category=$3,type=$4,subcategory=$5,counterparty=$6,note=$7,template_kind=$8,recurrence=$9,next_date=$10::date
+       WHERE id=$11 RETURNING ${templateFields}`,
+      [
+        b.title,
+        b.amount.toFixed(2),
+        b.category,
+        b.type,
+        b.subcategory,
+        b.counterparty,
+        b.note,
+        b.templateKind,
+        b.recurrence,
+        b.nextDate,
+        id
+      ]
+    )
+    if (!r.rows.length) {
+      res.status(404).json({ error: 'Шаблон не найден.' })
+      return
+    }
+    res.json(serial(r.rows[0]))
+  })
+  app.delete('/api/templates/:id', async (req, res) => {
+    const id = String(req.params.id)
+    if (!idValid(id)) throw new Error('Некорректный ID.')
+    await db.query('DELETE FROM operation_templates WHERE id=$1', [id])
+    res.status(204).end()
+  })
+  app.post('/api/templates/:id/use', async (req, res) => {
+    const id = String(req.params.id)
+    if (!idValid(id)) throw new Error('Некорректный ID.')
+    const date = req.body?.date
+    if (!validDate(date)) throw new Error('Некорректная дата операции.')
+    const c = await db.connect()
+    try {
+      await c.query('BEGIN')
+      const template = (
+        await c.query(`SELECT ${templateFields} FROM operation_templates WHERE id=$1 FOR UPDATE`, [
+          id
+        ])
+      ).rows[0]
+      if (!template) {
+        await c.query('ROLLBACK')
+        res.status(404).json({ error: 'Шаблон не найден.' })
+        return
+      }
+      const operation = (
+        await c.query(
+          `INSERT INTO expenses(id,title,amount,category,type,operation_date,subcategory,counterparty,note)
+           VALUES($1,$2,$3,$4,$5,$6::date,$7,$8,$9) RETURNING ${operationFields}`,
+          [
+            randomUUID(),
+            template.title,
+            template.amount,
+            template.category,
+            template.type,
+            date,
+            template.subcategory,
+            template.counterparty,
+            template.note
+          ]
+        )
+      ).rows[0]
+      let updatedTemplate = template
+      if (template.templateKind === 'recurring') {
+        const nextDate = nextRecurringDate(String(template.nextDate), String(template.recurrence))
+        updatedTemplate = (
+          await c.query(
+            `UPDATE operation_templates SET next_date=$1::date WHERE id=$2 RETURNING ${templateFields}`,
+            [nextDate, id]
+          )
+        ).rows[0]
+      }
+      await c.query('COMMIT')
+      res.status(201).json({ operation: serial(operation), template: serial(updatedTemplate) })
+    } catch (error) {
+      await c.query('ROLLBACK')
+      throw error
+    } finally {
+      c.release()
+    }
   })
   app.get('/api/budgets', async (req, res) => {
     if (!monthValid(req.query.month)) throw new Error('Выбери месяц.')
@@ -542,11 +689,12 @@ export function createApi(db: DB) {
   })
   app.get('/api/export', async (_req, res) => {
     const client = await db.connect()
-    const result: Record<string, unknown> = { version: 1, exportedAt: new Date().toISOString() }
+    const result: Record<string, unknown> = { version: 2, exportedAt: new Date().toISOString() }
     try {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
       for (const table of [
         'expenses',
+        'operation_templates',
         'budgets',
         'journal_entries',
         'tasks',

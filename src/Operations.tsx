@@ -15,6 +15,14 @@ type Operation = {
   note?: string
 }
 
+type TemplateKind = 'quick' | 'recurring'
+type Recurrence = 'weekly' | 'monthly' | 'yearly'
+type OperationTemplate = Omit<Operation, 'date'> & {
+  templateKind: TemplateKind
+  recurrence: Recurrence | null
+  nextDate: string | null
+}
+
 const defaultCategories = {
   expense: ['Продукты', 'Транспорт', 'Жильё', 'Развлечения', 'Здоровье', 'Одежда', 'Другое'],
   income: ['Подработки', 'Зарплата', 'Подарки', 'Другое']
@@ -57,6 +65,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export default function Operations() {
   const [operations, setOperations] = useState<Operation[]>([])
+  const [templates, setTemplates] = useState<OperationTemplate[]>([])
   const [month, setMonth] = useState(today().slice(0, 7))
   const [title, setTitle] = useState('')
   const [amount, setAmount] = useState('')
@@ -73,6 +82,16 @@ export default function Operations() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [lastAdded, setLastAdded] = useState<Operation | null>(null)
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false)
+  const [templateEditingId, setTemplateEditingId] = useState<string | null>(null)
+  const [templateTitle, setTemplateTitle] = useState('')
+  const [templateAmount, setTemplateAmount] = useState('')
+  const [templateType, setTemplateType] = useState<OperationType>('expense')
+  const [templateCategory, setTemplateCategory] = useState('Продукты')
+  const [templateKind, setTemplateKind] = useState<TemplateKind>('quick')
+  const [templateRecurrence, setTemplateRecurrence] = useState<Recurrence>('monthly')
+  const [templateNextDate, setTemplateNextDate] = useState(today)
 
   const inProgress = useRef(false)
   const titleInput = useRef<HTMLInputElement>(null)
@@ -82,12 +101,14 @@ export default function Operations() {
 
     async function load() {
       try {
-        const data = await request<Operation[]>('/api/expenses', {
-          signal: controller.signal
-        })
+        const [data, savedTemplates] = await Promise.all([
+          request<Operation[]>('/api/expenses', { signal: controller.signal }),
+          request<OperationTemplate[]>('/api/templates', { signal: controller.signal })
+        ])
 
         if (!controller.signal.aborted) {
           setOperations(data)
+          setTemplates(savedTemplates)
           setLoaded(true)
         }
       } catch {
@@ -109,6 +130,7 @@ export default function Operations() {
     new Set([
       ...defaultCategories[type],
       ...operations.filter((item) => item.type === type).map((item) => item.category),
+      ...templates.filter((item) => item.type === type).map((item) => item.category),
       category
     ])
   )
@@ -149,6 +171,133 @@ export default function Operations() {
     setDate(today())
   }
 
+  function resetTemplateForm() {
+    setTemplateEditingId(null)
+    setTemplateTitle('')
+    setTemplateAmount('')
+    setTemplateType('expense')
+    setTemplateCategory('Продукты')
+    setTemplateKind('quick')
+    setTemplateRecurrence('monthly')
+    setTemplateNextDate(today())
+  }
+
+  function editTemplate(item: OperationTemplate) {
+    setTemplateEditingId(item.id)
+    setTemplateTitle(item.title)
+    setTemplateAmount(String(item.amount))
+    setTemplateType(item.type)
+    setTemplateCategory(item.category)
+    setTemplateKind(item.templateKind)
+    setTemplateRecurrence(item.recurrence || 'monthly')
+    setTemplateNextDate(item.nextDate || today())
+    setTemplateEditorOpen(true)
+  }
+
+  async function saveTemplate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (disabled || inProgress.current) return
+    const value = Number(templateAmount.replace(',', '.'))
+    if (
+      !templateTitle.trim() ||
+      !templateCategory.trim() ||
+      !Number.isFinite(value) ||
+      value < 0.01
+    ) {
+      setError('Проверь название, сумму и категорию шаблона.')
+      return
+    }
+    inProgress.current = true
+    setBusy(true)
+    setError('')
+    setNotice('')
+    setLastAdded(null)
+    try {
+      const id = templateEditingId
+      const saved = await request<OperationTemplate>(
+        id ? `/api/templates/${id}` : '/api/templates',
+        {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: templateTitle.trim(),
+            amount: value,
+            type: templateType,
+            category: templateCategory.trim(),
+            templateKind,
+            recurrence: templateKind === 'recurring' ? templateRecurrence : null,
+            nextDate: templateKind === 'recurring' ? templateNextDate : null
+          })
+        }
+      )
+      setTemplates((current) =>
+        id ? current.map((item) => (item.id === id ? saved : item)) : [...current, saved]
+      )
+      resetTemplateForm()
+      setTemplateEditorOpen(false)
+      setNotice(id ? 'Шаблон обновлён.' : 'Шаблон создан.')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Ошибка сохранения шаблона.')
+    } finally {
+      inProgress.current = false
+      setBusy(false)
+    }
+  }
+
+  async function useTemplate(item: OperationTemplate) {
+    if (disabled || inProgress.current) return
+    inProgress.current = true
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await request<{
+        operation: Operation
+        template: OperationTemplate
+      }>(`/api/templates/${item.id}/use`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: today() })
+      })
+      setOperations((current) => [result.operation, ...current])
+      setTemplates((current) =>
+        current.map((template) => (template.id === item.id ? result.template : template))
+      )
+      if (month && !result.operation.date.startsWith(month)) {
+        setMonth(result.operation.date.slice(0, 7))
+      }
+      setLastAdded(result.operation)
+      setNotice(`«${result.operation.title}» добавлено.`)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Ошибка добавления по шаблону.')
+    } finally {
+      inProgress.current = false
+      setBusy(false)
+    }
+  }
+
+  async function removeTemplate(item: OperationTemplate) {
+    if (disabled || inProgress.current || !window.confirm(`Удалить шаблон «${item.title}»?`)) {
+      return
+    }
+    inProgress.current = true
+    setBusy(true)
+    setError('')
+    setNotice('')
+    setLastAdded(null)
+    try {
+      await request<void>(`/api/templates/${item.id}`, { method: 'DELETE' })
+      setTemplates((current) => current.filter((template) => template.id !== item.id))
+      if (templateEditingId === item.id) resetTemplateForm()
+      setNotice('Шаблон удалён.')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Ошибка удаления шаблона.')
+    } finally {
+      inProgress.current = false
+      setBusy(false)
+    }
+  }
+
   function changeType(value: OperationType) {
     setType(value)
     setCategory(defaultCategories[value][0])
@@ -168,6 +317,7 @@ export default function Operations() {
     setNote(item.note || '')
     setError('')
     setNotice('')
+    setLastAdded(null)
     titleInput.current?.focus()
     titleInput.current?.scrollIntoView({
       behavior: 'smooth',
@@ -197,6 +347,7 @@ export default function Operations() {
     setBusy(true)
     setError('')
     setNotice('')
+    setLastAdded(null)
 
     const id = editingId
 
@@ -242,6 +393,7 @@ export default function Operations() {
     setBusy(true)
     setError('')
     setNotice('')
+    setLastAdded(null)
 
     try {
       await request<void>(`/api/expenses/${item.id}`, { method: 'DELETE' })
@@ -292,7 +444,19 @@ export default function Operations() {
       )}
       {notice && (
         <p className="message success" role="status">
-          {notice}
+          {notice}{' '}
+          {lastAdded && (
+            <button
+              type="button"
+              className="inline-action"
+              onClick={() => {
+                edit(lastAdded)
+                setLastAdded(null)
+              }}
+            >
+              Изменить
+            </button>
+          )}
         </p>
       )}
 
@@ -437,6 +601,191 @@ export default function Operations() {
             )}
           </div>
         </form>
+      </section>
+
+      <section className="card templates-card">
+        <div className="section-heading">
+          <div>
+            <h2>Шаблоны</h2>
+            <p className="muted template-hint">Один тап — и полноценная операция уже в Life.</p>
+          </div>
+          <button
+            type="button"
+            className="secondary"
+            disabled={disabled}
+            onClick={() => {
+              resetTemplateForm()
+              setTemplateEditorOpen((open) => !open)
+            }}
+          >
+            {templateEditorOpen ? 'Закрыть' : '+ Новый шаблон'}
+          </button>
+        </div>
+
+        {templateEditorOpen && (
+          <form className="template-editor" onSubmit={saveTemplate}>
+            <div className="form-grid template-form-grid">
+              <label>
+                Название
+                <input
+                  value={templateTitle}
+                  onChange={(event) => setTemplateTitle(event.target.value)}
+                  placeholder="Вода"
+                  maxLength={100}
+                  required
+                  disabled={disabled}
+                />
+              </label>
+              <label>
+                Сумма, ₽
+                <input
+                  type="number"
+                  min="0.01"
+                  max="999999999.99"
+                  step="0.01"
+                  value={templateAmount}
+                  onChange={(event) => setTemplateAmount(event.target.value)}
+                  required
+                  disabled={disabled}
+                />
+              </label>
+              <label>
+                Категория
+                <input
+                  value={templateCategory}
+                  onChange={(event) => setTemplateCategory(event.target.value)}
+                  maxLength={100}
+                  required
+                  disabled={disabled}
+                />
+              </label>
+              <label>
+                Тип
+                <select
+                  value={templateType}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    const value = event.target.value as OperationType
+                    setTemplateType(value)
+                    setTemplateCategory(defaultCategories[value][0])
+                  }}
+                >
+                  <option value="expense">Расход</option>
+                  <option value="income">Доход</option>
+                </select>
+              </label>
+              <label>
+                Режим
+                <select
+                  value={templateKind}
+                  disabled={disabled}
+                  onChange={(event) => setTemplateKind(event.target.value as TemplateKind)}
+                >
+                  <option value="quick">Быстрый</option>
+                  <option value="recurring">Регулярный</option>
+                </select>
+              </label>
+              {templateKind === 'recurring' && (
+                <>
+                  <label>
+                    Повтор
+                    <select
+                      value={templateRecurrence}
+                      disabled={disabled}
+                      onChange={(event) =>
+                        setTemplateRecurrence(event.target.value as Recurrence)
+                      }
+                    >
+                      <option value="weekly">Каждую неделю</option>
+                      <option value="monthly">Каждый месяц</option>
+                      <option value="yearly">Каждый год</option>
+                    </select>
+                  </label>
+                  <label>
+                    Следующая дата
+                    <input
+                      type="date"
+                      min="1900-01-01"
+                      max="2100-12-31"
+                      value={templateNextDate}
+                      onChange={(event) => setTemplateNextDate(event.target.value)}
+                      required
+                      disabled={disabled}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+            <div className="form-actions">
+              <button type="submit" disabled={disabled}>
+                {templateEditingId ? 'Сохранить шаблон' : 'Создать шаблон'}
+              </button>
+              {templateEditingId && (
+                <button type="button" className="secondary" onClick={resetTemplateForm}>
+                  Отмена
+                </button>
+              )}
+            </div>
+          </form>
+        )}
+
+        {loaded && templates.length === 0 && !templateEditorOpen && (
+          <p className="muted">
+            Создай «Вода», «Шоколадка» или любую повторяющуюся оплату.
+          </p>
+        )}
+        <div className="template-list">
+          {templates.map((item) => {
+            const due =
+              item.templateKind === 'recurring' && !!item.nextDate && item.nextDate <= today()
+            return (
+              <article className={`template-item ${due ? 'due' : ''}`} key={item.id}>
+                <button
+                  type="button"
+                  className="template-use"
+                  disabled={disabled}
+                  onClick={() => void useTemplate(item)}
+                >
+                  <span className="template-name">{item.title}</span>
+                  <strong>
+                    {item.type === 'income' ? '+' : '−'}
+                    {money(item.amount)}
+                  </strong>
+                  <small>
+                    {item.category}
+                    {item.templateKind === 'recurring'
+                      ? ` · ${
+                          due
+                            ? 'пора оплатить'
+                            : `следующая ${item.nextDate?.split('-').reverse().join('.')}`
+                        }`
+                      : ''}
+                  </small>
+                </button>
+                <div className="template-actions">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={`Изменить шаблон: ${item.title}`}
+                    disabled={disabled}
+                    onClick={() => editTemplate(item)}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button delete"
+                    aria-label={`Удалить шаблон: ${item.title}`}
+                    disabled={disabled}
+                    onClick={() => void removeTemplate(item)}
+                  >
+                    ×
+                  </button>
+                </div>
+              </article>
+            )
+          })}
+        </div>
       </section>
 
       <div className="columns">

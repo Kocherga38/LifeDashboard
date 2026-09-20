@@ -59,6 +59,49 @@ test('Миграции, API, импорт Excel и сохранение посл
     assert.equal((await request('/api/expenses', 'POST', { ...input, amount: -2 })).status, 400)
     await request(`/api/expenses/${id}`, 'DELETE')
     assert.equal((await request('/api/expenses')).body.length, 1)
+    r = await request('/api/templates', 'POST', {
+      title: 'Вода',
+      amount: 24.99,
+      category: 'Продукты',
+      type: 'expense',
+      templateKind: 'quick'
+    })
+    assert.equal(r.status, 201)
+    const quickTemplateId = r.body.id
+    r = await request(`/api/templates/${quickTemplateId}/use`, 'POST', {
+      date: '2026-09-20'
+    })
+    assert.equal(r.status, 201)
+    assert.equal(r.body.operation.amount, 24.99)
+    assert.equal(r.body.operation.title, 'Вода')
+    assert.equal(r.body.template.nextDate, null)
+    r = await request('/api/templates', 'POST', {
+      title: 'Подписка',
+      amount: 499,
+      category: 'Подписки',
+      type: 'expense',
+      templateKind: 'recurring',
+      recurrence: 'monthly',
+      nextDate: '2026-01-31'
+    })
+    const recurringTemplateId = r.body.id
+    r = await request(`/api/templates/${recurringTemplateId}/use`, 'POST', {
+      date: '2026-01-31'
+    })
+    assert.equal(r.body.template.nextDate, '2026-02-28')
+    r = await request(`/api/templates/${recurringTemplateId}`, 'PUT', {
+      title: 'Подписка Plus',
+      amount: 599,
+      category: 'Подписки',
+      type: 'expense',
+      templateKind: 'recurring',
+      recurrence: 'yearly',
+      nextDate: '2026-02-28'
+    })
+    assert.equal(r.body.title, 'Подписка Plus')
+    assert.equal((await request('/api/templates')).body.length, 2)
+    await request(`/api/templates/${quickTemplateId}`, 'DELETE')
+    assert.equal((await request('/api/templates')).body.length, 1)
     r = await request('/api/budgets', 'PUT', {
       month: '2026-09',
       category: 'Продукты',
@@ -156,7 +199,7 @@ test('Миграции, API, импорт Excel и сохранение посл
     assert.equal(r.status, 200, JSON.stringify(r.body))
     assert.equal(r.body.operationsAdded, 186)
     assert.equal((await request('/api/import/apply', 'POST')).body.alreadyImported, true)
-    assert.equal((await request('/api/expenses')).body.length, 187)
+    assert.equal((await request('/api/expenses')).body.length, 189)
     assert.equal((await request('/api/journal/products')).body.length, 13)
     assert.equal((await request('/api/journal/shifts')).body.length, 10)
     assert.equal((await request('/api/journal/meals')).body.length, 15)
@@ -188,18 +231,20 @@ test('Миграции, API, импорт Excel и сохранение посл
       body: JSON.stringify(input)
     })
     assert.equal(foreign.status, 403)
-    assert.equal((await request('/api/export')).body.expenses.length, 187)
+    assert.equal((await request('/api/export')).body.expenses.length, 189)
+    assert.equal((await request('/api/export')).body.operation_templates.length, 1)
     assert.equal((await request('/api/export')).body.tasks.length, 1)
     // Удалённая импортированная запись не появляется снова при повторном импорте.
     await request(`/api/expenses/${data[0].id}`, 'DELETE')
     await request('/api/import/apply', 'POST')
-    assert.equal((await request('/api/expenses')).body.length, 186)
+    assert.equal((await request('/api/expenses')).body.length, 188)
   } finally {
     await new Promise<void>((r) => server.close(() => r()))
     await db.end()
   }
   db = await testDatabase(directory)
-  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM expenses')).rows[0].n, 186)
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM expenses')).rows[0].n, 188)
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM operation_templates')).rows[0].n, 1)
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM journal_entries')).rows[0].n, 43)
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM tasks')).rows[0].n, 1)
   await db.end()
