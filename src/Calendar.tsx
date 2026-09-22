@@ -13,6 +13,7 @@ type Task = {
   title: string
   date: string
   startDate?: string
+  occurrenceDate?: string
   completed: boolean
   recurrence: Recurrence
   color: TaskColor
@@ -95,6 +96,8 @@ function recurrencePayload(mode: RepeatMode, intervalDays: number, selected: num
   if (mode === 'weekdays') return { type: 'weekdays', weekdays: selected }
   return { type: 'none' }
 }
+
+const taskIdentity = (task: Task) => `${task.id}:${task.occurrenceDate ?? task.date}`
 
 function ColorPicker({ value, onChange }: { value: TaskColor; onChange: (color: TaskColor) => void }) {
   return (
@@ -197,6 +200,8 @@ export default function Calendar() {
   const [editWeekdays, setEditWeekdays] = useState<number[]>([])
   const [editColor, setEditColor] = useState<TaskColor>('default')
   const [saving, setSaving] = useState(false)
+  const [draggingTask, setDraggingTask] = useState<Task | null>(null)
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null)
 
   const [from, to] = useMemo(() => rangeFor(view, anchor), [view, anchor])
   const days = useMemo(
@@ -308,20 +313,20 @@ export default function Calendar() {
   async function toggle(task: Task) {
     const optimistic = { ...task, completed: !task.completed }
     setTasks((current) =>
-      current.map((t) => (t.id === task.id && t.date === task.date ? optimistic : t))
+      current.map((t) => (taskIdentity(t) === taskIdentity(task) ? optimistic : t))
     )
     try {
       const saved = await api<Task>(`/api/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: optimistic.completed, date: task.date })
+        body: JSON.stringify({ completed: optimistic.completed, date: task.date, occurrenceDate: task.occurrenceDate })
       })
       setTasks((current) =>
-        current.map((t) => (t.id === task.id && t.date === task.date ? saved : t))
+        current.map((t) => (taskIdentity(t) === taskIdentity(task) ? saved : t))
       )
     } catch (e) {
       setTasks((current) =>
-        current.map((t) => (t.id === task.id && t.date === task.date ? task : t))
+        current.map((t) => (taskIdentity(t) === taskIdentity(task) ? task : t))
       )
       setError((e as Error).message)
     }
@@ -374,12 +379,33 @@ export default function Calendar() {
   }
 
   async function remove(task: Task) {
-    if (task.recurrence && !window.confirm(`Удалить повторяющуюся задачу «${task.title}» целиком?`)) return
+    if (task.recurrence && !window.confirm(`Удалить повторяющуюся задачу «${task.title}» целиком? Выполненные задачи останутся в истории.`)) return
     const before = tasks
     setTasks((current) => current.filter((t) => t.id !== task.id))
     if (editing?.id === task.id) setEditing(null)
     try {
       await api<void>(`/api/tasks/${task.id}`, { method: 'DELETE' })
+      await loadTasks()
+    } catch (e) {
+      setTasks(before)
+      setError((e as Error).message)
+    }
+  }
+
+  async function moveTask(task: Task, toDate: string) {
+    if (task.date === toDate || saving) return
+    const before = tasks
+    const identity = taskIdentity(task)
+    const optimistic = { ...task, date: toDate }
+    setTasks((current) => current.map((item) => taskIdentity(item) === identity ? optimistic : item))
+    setError('')
+    try {
+      const saved = await api<Task>(`/api/tasks/${task.id}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromDate: task.occurrenceDate ?? task.date, toDate })
+      })
+      setTasks((current) => current.map((item) => taskIdentity(item) === taskIdentity(optimistic) ? saved : item))
     } catch (e) {
       setTasks(before)
       setError((e as Error).message)
@@ -430,7 +456,23 @@ export default function Calendar() {
             const isToday = date === today()
             const otherMonth = view === 'month' && day.getMonth() !== anchor.getMonth()
             return (
-              <article className={`calendar-day ${isToday ? 'today' : ''} ${otherMonth ? 'other-month' : ''}`} key={date}>
+              <article
+                className={`calendar-day ${isToday ? 'today' : ''} ${otherMonth ? 'other-month' : ''} ${dragOverDate === date && draggingTask?.date !== date ? 'drag-over' : ''}`}
+                key={date}
+                onDragEnter={() => draggingTask && setDragOverDate(date)}
+                onDragOver={(event) => {
+                  if (!draggingTask) return
+                  event.preventDefault()
+                  event.dataTransfer.dropEffect = 'move'
+                }}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  const task = draggingTask
+                  setDraggingTask(null)
+                  setDragOverDate(null)
+                  if (task) void moveTask(task, date)
+                }}
+              >
                 <div className="calendar-day-head">
                   <div>
                     {view === 'week' && <span className="calendar-day-weekday">{weekdays[index]}</span>}
@@ -442,9 +484,9 @@ export default function Calendar() {
 
                 <div className="task-list">
                   {items.map((task) => {
-                    const isEditing = editing?.id === task.id && editing?.date === task.date
+                    const isEditing = editing ? taskIdentity(editing) === taskIdentity(task) : false
                     return isEditing ? (
-                      <form className="task-edit-form" onSubmit={saveEdit} key={`${task.id}:${task.date}`}>
+                      <form className="task-edit-form" onSubmit={saveEdit} key={taskIdentity(task)}>
                         <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} maxLength={200} />
                         <label className="edit-date-label">
                           <span>Начало</span>
@@ -468,7 +510,21 @@ export default function Calendar() {
                         )}
                       </form>
                     ) : (
-                      <div className={`task-row color-${task.color ?? 'default'} ${task.completed ? 'done' : ''}`} key={`${task.id}:${task.date}`}>
+                      <div
+                        className={`task-row color-${task.color ?? 'default'} ${task.completed ? 'done' : ''} ${draggingTask && taskIdentity(draggingTask) === taskIdentity(task) ? 'dragging' : ''}`}
+                        key={taskIdentity(task)}
+                        draggable={!saving}
+                        title="Перетащи задачу на другой день"
+                        onDragStart={(event) => {
+                          setDraggingTask(task)
+                          event.dataTransfer.effectAllowed = 'move'
+                          event.dataTransfer.setData('text/plain', taskIdentity(task))
+                        }}
+                        onDragEnd={() => {
+                          setDraggingTask(null)
+                          setDragOverDate(null)
+                        }}
+                      >
                         <label className="task-check-label" title={task.completed ? 'Вернуть задачу' : 'Выполнить'}>
                           <input className="task-checkbox" type="checkbox" checked={task.completed} onChange={() => toggle(task)} />
                           <span className="task-fake-check" aria-hidden="true" />

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, money, today } from './api'
 import './overview.css'
 
-type Task = { id: string; title: string; date: string; completed: boolean; color: string }
+type Task = { id: string; title: string; date: string; occurrenceDate?: string; completed: boolean; color: string }
 type Habit = { id: string; name: string }
 type Mark = { habitId: string; date: string }
 type Flashcard = { id: string; dueDate: string }
@@ -61,7 +61,7 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
     try {
       await api(`/api/tasks/${task.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: next, date: task.date })
+        body: JSON.stringify({ completed: next, date: task.date, occurrenceDate: task.occurrenceDate })
       })
     } catch (e) { setError((e as Error).message); await load() }
   }

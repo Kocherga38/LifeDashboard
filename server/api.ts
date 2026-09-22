@@ -16,6 +16,21 @@ const textValid = (s: unknown, max = 100): s is string =>
   typeof s === 'string' && !!s.trim() && s.length <= max
 const amountValid = (n: unknown): n is number =>
   typeof n === 'number' && Number.isFinite(n) && n >= 0.01 && n <= 999999999.99
+const sidebarSections = [
+  'today','weekly','operations','analytics','calendar','notes','diary','flashcards',
+  'habits','shifts','weights','measurements','meals','products','workouts','data'
+]
+const sidebarSectionSet = new Set(sidebarSections)
+
+function sidebarOrderInput(raw: unknown) {
+  if (
+    !Array.isArray(raw) ||
+    raw.length !== sidebarSections.length ||
+    raw.some((key) => typeof key !== 'string' || !sidebarSectionSet.has(key)) ||
+    new Set(raw).size !== raw.length
+  ) throw new Error('Некорректный порядок разделов.')
+  return raw as string[]
+}
 
 type RecurrenceType = 'none' | 'interval' | 'weekdays'
 type Recurrence = { type: RecurrenceType; intervalDays?: number; weekdays?: number[] }
@@ -414,14 +429,18 @@ export function createApi(db: DB) {
     const completionRows = hasRecurring
       ? (
           await db.query(
-            `SELECT task_id,to_char(occurrence_date,'YYYY-MM-DD') AS date,completed
+            `SELECT task_id,
+                    to_char(occurrence_date,'YYYY-MM-DD') AS "occurrenceDate",
+                    to_char(moved_to_date,'YYYY-MM-DD') AS "movedToDate",
+                    completed
              FROM task_occurrences
-             WHERE occurrence_date BETWEEN $1::date AND $2::date`,
+             WHERE occurrence_date BETWEEN $1::date AND $2::date
+                OR moved_to_date BETWEEN $1::date AND $2::date`,
             [from, to]
           )
         ).rows
       : []
-    const completion = new Map(completionRows.map((r) => [`${r.task_id}:${r.date}`, Boolean(r.completed)]))
+    const occurrences = new Map(completionRows.map((r) => [`${r.task_id}:${r.occurrenceDate}`, r]))
     const result: Record<string, unknown>[] = []
     for (const row of rows) {
       const recurrence = recurrenceFromRow(row)
@@ -432,18 +451,39 @@ export function createApi(db: DB) {
       for (let ms = dateMs(String(from)); ms <= dateMs(String(to)); ms += 86400000) {
         const date = dateFromMs(ms)
         if (!occursOn(row, date)) continue
+        const occurrence = occurrences.get(`${row.id}:${date}`)
+        if (occurrence?.movedToDate) continue
         result.push({
           id: row.id,
           title: row.title,
           date,
           startDate: row.date,
-          completed: completion.get(`${row.id}:${date}`) ?? false,
+          occurrenceDate: date,
+          completed: Boolean(occurrence?.completed),
+          recurrence,
+          color: row.color
+        })
+      }
+      for (const occurrence of completionRows) {
+        if (
+          occurrence.task_id !== row.id ||
+          !occurrence.movedToDate ||
+          occurrence.movedToDate < String(from) ||
+          occurrence.movedToDate > String(to)
+        ) continue
+        result.push({
+          id: row.id,
+          title: row.title,
+          date: occurrence.movedToDate,
+          startDate: row.date,
+          occurrenceDate: occurrence.occurrenceDate,
+          completed: Boolean(occurrence.completed),
           recurrence,
           color: row.color
         })
       }
     }
-    result.sort((a: any, b: any) => a.date.localeCompare(b.date) || Number(a.completed) - Number(b.completed) || a.title.localeCompare(b.title))
+    result.sort((a: any, b: any) => a.date.localeCompare(b.date) || Number(a.completed) - Number(b.completed) || a.title.localeCompare(b.title) || String(a.occurrenceDate ?? '').localeCompare(String(b.occurrenceDate ?? '')))
     res.json(result)
   })
   app.post('/api/tasks', async (req, res) => {
@@ -494,14 +534,24 @@ export function createApi(db: DB) {
         res.json({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: null, color: row.color })
         return
       }
-      const date = req.body?.date
-      if (!validDate(date) || !occursOn(base, date)) throw new Error('Некорректная дата повторяющейся задачи.')
+      const occurrenceDate = req.body?.occurrenceDate ?? req.body?.date
+      if (!validDate(occurrenceDate) || !occursOn(base, occurrenceDate)) throw new Error('Некорректная дата повторяющейся задачи.')
+      const savedOccurrence = (
+        await db.query(
+          `SELECT to_char(moved_to_date,'YYYY-MM-DD') AS "movedToDate"
+           FROM task_occurrences WHERE task_id=$1 AND occurrence_date=$2::date`,
+          [id, occurrenceDate]
+        )
+      ).rows[0]
+      const date = savedOccurrence?.movedToDate ?? occurrenceDate
+      if (req.body?.date !== undefined && req.body.date !== date)
+        throw new Error('Эта задача уже перенесена. Обнови календарь.')
       await db.query(
         `INSERT INTO task_occurrences(task_id,occurrence_date,completed) VALUES($1,$2::date,$3)
          ON CONFLICT(task_id,occurrence_date) DO UPDATE SET completed=EXCLUDED.completed`,
-        [id, date, req.body.completed]
+        [id, occurrenceDate, req.body.completed]
       )
-      res.json({ id, title: base.title, date, startDate: base.date, completed: req.body.completed, recurrence, color: base.color })
+      res.json({ id, title: base.title, date, startDate: base.date, occurrenceDate, completed: req.body.completed, recurrence, color: base.color })
       return
     }
 
@@ -525,11 +575,114 @@ export function createApi(db: DB) {
     const row = r.rows[0]
     res.json({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: recurrenceFromRow(row), color: row.color })
   })
+  app.post('/api/tasks/:id/move', async (req, res) => {
+    const id = String(req.params.id)
+    const fromDate = req.body?.fromDate,
+      toDate = req.body?.toDate
+    if (!idValid(id) || !validDate(fromDate) || !validDate(toDate))
+      throw new Error('Проверь даты переноса задачи.')
+    const base = (
+      await db.query(
+        `SELECT id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,interval_days,weekdays,color
+         FROM tasks WHERE id=$1`,
+        [id]
+      )
+    ).rows[0]
+    if (!base) {
+      res.status(404).json({ error: 'Задача уже удалена.' })
+      return
+    }
+    const recurrence = recurrenceFromRow(base)
+    if (!recurrence) {
+      if (base.date !== fromDate) throw new Error('Эта задача уже перенесена. Обнови календарь.')
+      const row = (
+        await db.query(
+          `UPDATE tasks SET task_date=$1::date WHERE id=$2
+           RETURNING id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,color`,
+          [toDate, id]
+        )
+      ).rows[0]
+      res.json({ id: row.id, title: row.title, date: row.date, startDate: row.date, completed: Boolean(row.completed), recurrence: null, color: row.color })
+      return
+    }
+    if (!occursOn(base, fromDate)) throw new Error('Некорректная дата повторяющейся задачи.')
+    const movedToDate = fromDate === toDate ? null : toDate
+    const occurrence = (
+      await db.query(
+        `INSERT INTO task_occurrences(task_id,occurrence_date,moved_to_date)
+         VALUES($1,$2::date,$3::date)
+         ON CONFLICT(task_id,occurrence_date) DO UPDATE SET moved_to_date=EXCLUDED.moved_to_date
+         RETURNING completed`,
+        [id, fromDate, movedToDate]
+      )
+    ).rows[0]
+    res.json({
+      id,
+      title: base.title,
+      date: toDate,
+      startDate: base.date,
+      occurrenceDate: fromDate,
+      completed: Boolean(occurrence.completed),
+      recurrence,
+      color: base.color
+    })
+  })
   app.delete('/api/tasks/:id', async (req, res) => {
     const id = String(req.params.id)
     if (!idValid(id)) throw new Error('Некорректный ID.')
-    await db.query('DELETE FROM tasks WHERE id=$1', [id])
+    const client = await db.connect()
+    try {
+      await client.query('BEGIN')
+      const task = (
+        await client.query(
+          `SELECT id,title,to_char(task_date,'YYYY-MM-DD') AS date,completed,recurrence_type,color
+           FROM tasks WHERE id=$1 FOR UPDATE`,
+          [id]
+        )
+      ).rows[0]
+      if (task && task.recurrence_type !== 'none') {
+        const completed = (
+          await client.query(
+            `SELECT to_char(COALESCE(moved_to_date,occurrence_date),'YYYY-MM-DD') AS date
+             FROM task_occurrences WHERE task_id=$1 AND completed=TRUE`,
+            [id]
+          )
+        ).rows
+        for (const occurrence of completed) {
+          await client.query(
+            `INSERT INTO tasks(id,title,task_date,completed,recurrence_type,color)
+             VALUES($1,$2,$3::date,TRUE,'none',$4)`,
+            [randomUUID(), task.title, occurrence.date, task.color]
+          )
+        }
+      }
+      await client.query('DELETE FROM tasks WHERE id=$1', [id])
+      await client.query('COMMIT')
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
     res.status(204).end()
+  })
+
+  app.get('/api/sidebar-order', async (_req, res) => {
+    const value = (await db.query(`SELECT value FROM app_settings WHERE key='sidebar-order'`)).rows[0]?.value
+    const saved = Array.isArray(value)
+      ? value.filter((key): key is string => typeof key === 'string' && sidebarSectionSet.has(key))
+      : []
+    const unique = [...new Set(saved)]
+    res.json({ order: [...unique, ...sidebarSections.filter((key) => !unique.includes(key))] })
+  })
+  app.put('/api/sidebar-order', async (req, res) => {
+    const order = sidebarOrderInput(req.body?.order)
+    await db.query(
+      `INSERT INTO app_settings(key,value) VALUES('sidebar-order',$1::jsonb)
+       ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`,
+      [JSON.stringify(order)]
+    )
+    res.json({ order })
   })
 
   app.get('/api/goals', async (_req, res) =>

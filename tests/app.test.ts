@@ -163,6 +163,12 @@ test('Миграции, API, импорт Excel и сохранение посл
       recurrence: { type: 'none' }
     })
     assert.equal(editedTask.body.title, 'Сходить в зал вечером')
+    const movedTask = await request(`/api/tasks/${task.body.id}/move`, 'POST', {
+      fromDate: '2026-09-18',
+      toDate: '2026-09-19'
+    })
+    assert.equal(movedTask.body.date, '2026-09-19')
+    assert.equal(movedTask.body.completed, true)
     const recurring = await request('/api/tasks', 'POST', {
       title: 'Тренировка',
       date: '2026-09-14',
@@ -186,12 +192,33 @@ test('Миграции, API, импорт Excel и сохранение посл
       (t: any) => t.id === recurring.body.id
     )
     assert.equal(recurringAfter.find((t: any) => t.date === '2026-09-16').completed, true)
-    await request(`/api/tasks/${recurring.body.id}`, 'DELETE')
-    assert.equal(
-      (await request('/api/tasks?from=2026-09-14&to=2026-09-20')).body.filter((t: any) => t.id === recurring.body.id).length,
-      0
+    const movedOccurrence = await request(`/api/tasks/${recurring.body.id}/move`, 'POST', {
+      fromDate: '2026-09-16',
+      toDate: '2026-09-17'
+    })
+    assert.equal(movedOccurrence.body.date, '2026-09-17')
+    assert.equal(movedOccurrence.body.occurrenceDate, '2026-09-16')
+    assert.equal(movedOccurrence.body.completed, true)
+    const afterMove = (await request('/api/tasks?from=2026-09-14&to=2026-09-20')).body.filter(
+      (t: any) => t.id === recurring.body.id
     )
+    assert.equal(afterMove.some((t: any) => t.date === '2026-09-16'), false)
+    assert.equal(afterMove.find((t: any) => t.date === '2026-09-17').completed, true)
+    await request(`/api/tasks/${recurring.body.id}`, 'DELETE')
+    const afterRecurringDelete = (await request('/api/tasks?from=2026-09-14&to=2026-09-20')).body
+    assert.equal(afterRecurringDelete.filter((t: any) => t.id === recurring.body.id).length, 0)
+    const preserved = afterRecurringDelete.find((t: any) => t.title === 'Тренировка')
+    assert.equal(preserved.date, '2026-09-17')
+    assert.equal(preserved.completed, true)
+    assert.equal(preserved.recurrence, null)
     assert.equal((await request('/api/tasks?from=2026-09-14&to=bad')).status, 400)
+    const defaultSidebar = await request('/api/sidebar-order')
+    assert.equal(defaultSidebar.body.order[0], 'today')
+    assert.equal(defaultSidebar.body.order.length, 16)
+    const reversedSidebar = [...defaultSidebar.body.order].reverse()
+    assert.deepEqual((await request('/api/sidebar-order', 'PUT', { order: reversedSidebar })).body.order, reversedSidebar)
+    assert.deepEqual((await request('/api/sidebar-order')).body.order, reversedSidebar)
+    assert.equal((await request('/api/sidebar-order', 'PUT', { order: ['today', 'today'] })).status, 400)
     r = await request('/api/import/preview')
     assert.equal(r.body.counts.operations, 186)
     assert.equal(r.body.issues.length, 6)
@@ -233,7 +260,7 @@ test('Миграции, API, импорт Excel и сохранение посл
     assert.equal(foreign.status, 403)
     assert.equal((await request('/api/export')).body.expenses.length, 189)
     assert.equal((await request('/api/export')).body.operation_templates.length, 1)
-    assert.equal((await request('/api/export')).body.tasks.length, 1)
+    assert.equal((await request('/api/export')).body.tasks.length, 2)
     // Удалённая импортированная запись не появляется снова при повторном импорте.
     await request(`/api/expenses/${data[0].id}`, 'DELETE')
     await request('/api/import/apply', 'POST')
@@ -246,7 +273,7 @@ test('Миграции, API, импорт Excel и сохранение посл
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM expenses')).rows[0].n, 188)
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM operation_templates')).rows[0].n, 1)
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM journal_entries')).rows[0].n, 43)
-  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM tasks')).rows[0].n, 1)
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM tasks')).rows[0].n, 2)
   await db.end()
   await rm(directory, { recursive: true, force: true })
 })

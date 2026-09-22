@@ -26,7 +26,7 @@ export default function Habits() {
     await load()
   }
   const rename = async (h: Habit) => {
-    const name = prompt('Новое название', h.name)?.trim()
+    const name = prompt('Новое название действия', h.name)?.trim()
     if (!name) return
     await api(`/api/habits/${h.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
     await load()
@@ -46,7 +46,7 @@ export default function Habits() {
     {error && <div className="message error">{error}</div>}
     <section className="card habit-card">
       <div className="habit-toolbar"><button className="secondary" onClick={() => shift(-1)}>←</button><h2>{cursor.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</h2><button className="secondary" onClick={() => shift(1)}>→</button><button className="secondary" onClick={() => setCursor(new Date())}>Сегодня</button></div>
-      <div className="habit-scroll"><table className="habit-table"><thead><tr><th className="habit-name">Действие</th>{Array.from({ length: days }, (_, i) => <th key={i}>{i + 1}<small>{['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][new Date(y, m, i + 1).getDay()]}</small></th>)}<th /></tr></thead><tbody>{habits.map((h) => <tr key={h.id}><td className="habit-name"><strong>{h.name}</strong></td>{Array.from({ length: days }, (_, i) => { const date = iso(new Date(y, m, i + 1)), on = set.has(`${h.id}:${date}`); return <td key={date}><button aria-label={`${h.name} ${date}`} className={`habit-dot ${on ? 'done' : ''}`} onClick={() => toggle(h, date)}>{on ? '✓' : ''}</button></td> })}<td className="habit-actions"><button className="icon-button" onClick={() => rename(h)}>✎</button><button className="icon-button delete" onClick={() => remove(h)}>×</button></td></tr>)}</tbody></table></div>
+      <div className="habit-scroll"><table className="habit-table"><thead><tr><th className="habit-name">Действие</th>{Array.from({ length: days }, (_, i) => <th key={i}>{i + 1}<small>{['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][new Date(y, m, i + 1).getDay()]}</small></th>)}</tr></thead><tbody>{habits.map((h) => <tr key={h.id}><td className="habit-name"><div className="habit-name-row"><strong>{h.name}</strong><span className="habit-actions"><button className="icon-button" aria-label={`Переименовать «${h.name}»`} title="Переименовать" onClick={() => rename(h)}>✎</button><button className="icon-button delete" aria-label={`Удалить «${h.name}»`} title="Удалить" onClick={() => remove(h)}>×</button></span></div></td>{Array.from({ length: days }, (_, i) => { const date = iso(new Date(y, m, i + 1)), on = set.has(`${h.id}:${date}`); return <td key={date}><button aria-label={`${h.name} ${date}`} className={`habit-dot ${on ? 'done' : ''}`} onClick={() => toggle(h, date)}>{on ? '✓' : ''}</button></td> })}</tr>)}</tbody></table></div>
       {!habits.length && <p className="muted empty">Создай первый трекер — потом просто кликай по дням.</p>}
     </section>
   </main>

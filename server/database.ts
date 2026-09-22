@@ -106,7 +106,9 @@ export async function migrate(db: DB) {
     await client.query(
       `CREATE TABLE IF NOT EXISTS task_occurrences(task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,occurrence_date DATE NOT NULL,completed BOOLEAN NOT NULL DEFAULT FALSE,PRIMARY KEY(task_id,occurrence_date))`
     )
+    await client.query(`ALTER TABLE task_occurrences ADD COLUMN IF NOT EXISTS moved_to_date DATE`)
     await client.query(`CREATE INDEX IF NOT EXISTS task_occurrences_date_idx ON task_occurrences(occurrence_date)`)
+    await client.query(`CREATE INDEX IF NOT EXISTS task_occurrences_moved_date_idx ON task_occurrences(moved_to_date) WHERE moved_to_date IS NOT NULL`)
     await client.query(
       `CREATE TABLE IF NOT EXISTS note_folders(id UUID PRIMARY KEY,name VARCHAR(120) NOT NULL,parent_id UUID REFERENCES note_folders(id) ON DELETE CASCADE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
     )
