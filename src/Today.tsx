@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { api, money, today } from './api'
 import GoalSpotlight from './GoalSpotlight'
-import type { PersonalGoal } from './goalTypes'
+import type { MonthlyGoal, PersonalGoal } from './goalTypes'
 import './overview.css'
 
 type Task = { id: string; title: string; date: string; occurrenceDate?: string; completed: boolean; color: string }
@@ -26,13 +26,14 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
   const [workouts, setWorkouts] = useState<Entry[]>([])
   const [diary, setDiary] = useState<Diary[]>([])
   const [goals, setGoals] = useState<PersonalGoal[]>([])
+  const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([])
   const [goalsLoaded, setGoalsLoaded] = useState(false)
   const [error, setError] = useState('')
 
   const load = async () => {
     setError('')
     try {
-      const [t, h, m, c, e, s, w, wo, d, g] = await Promise.all([
+      const [t, h, m, c, e, s, w, wo, d, g, mg] = await Promise.all([
         api<Task[]>(`/api/tasks?from=${date}&to=${date}`),
         api<Habit[]>('/api/habits'),
         api<Mark[]>(`/api/habit-marks?from=${date}&to=${date}`),
@@ -42,9 +43,10 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
         api<Entry[]>('/api/journal/weights'),
         api<Entry[]>('/api/journal/workouts'),
         api<Diary[]>('/api/diary'),
-        api<PersonalGoal[]>('/api/personal-goals')
+        api<PersonalGoal[]>('/api/personal-goals'),
+        api<MonthlyGoal[]>(`/api/monthly-goals?month=${date.slice(0, 7)}`)
       ])
-      setTasks(t); setHabits(h); setMarks(m); setCards(c); setExpenses(e); setShifts(s); setWeights(w); setWorkouts(wo); setDiary(d); setGoals(g)
+      setTasks(t); setHabits(h); setMarks(m); setCards(c); setExpenses(e); setShifts(s); setWeights(w); setWorkouts(wo); setDiary(d); setGoals(g); setMonthlyGoals(mg)
     } catch (e) { setError((e as Error).message) }
     finally { setGoalsLoaded(true) }
   }
@@ -99,7 +101,7 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
       </div>
     </section>
     {error && <div className="message error">{error}</div>}
-    {goalsLoaded && <GoalSpotlight goals={goals} reference={date} onNavigate={() => onNavigate('goals')} />}
+    {goalsLoaded && <GoalSpotlight goals={goals} monthlyGoals={monthlyGoals} month={date.slice(0, 7)} reference={date} onNavigate={() => onNavigate('goals')} />}
 
     <div className="overview-section-intro"><div><span className="eyebrow">В ФОКУСЕ</span><h2>Твой день, по частям</h2></div><span>01 / ОБЗОР</span></div>
     <section className="today-grid">

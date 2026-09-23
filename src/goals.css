@@ -21,12 +21,46 @@
 .goal-spotlight-empty > span { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; background: #354a31; color: #cbe796; font-size: 23px; }
 .goal-spotlight-empty p { flex: 1; margin: 0; color: #bccdb8; font-size: 13px; line-height: 1.5; }
 .goal-spotlight-empty button { flex: 0 0 auto; font-size: 12px; }
+.goal-spotlight-month { margin: 0 0 18px; padding: 14px 17px; border: 1px solid #526947; border-radius: 14px; background: #30432f; }
+.goal-spotlight-month > span { color: #c8e49e; font-size: 10px; font-weight: 750; letter-spacing: .15em; }
+.goal-spotlight-month > div { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; }
+.goal-spotlight-month > div > div { display: flex; gap: 7px; align-items: baseline; min-width: 0; color: #e9f1df; font-size: 12px; }
+.goal-spotlight-month > div > div > span { color: #cbe796; }
+.goal-spotlight-month > div > div.done { color: #a7b9a5; text-decoration: line-through; }
+.goal-spotlight-month .link-button { margin-top: 10px; }
 
 .goals-page header { align-items: start; }
 .goals-page header .muted { max-width: 660px; }
 .goal-page-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 23px; }
 .goal-page-summary > span { display: inline-flex; align-items: baseline; gap: 7px; padding: 9px 14px; border: 1px solid #34453a; border-radius: 999px; background: #1c2923; color: #9dae9e; font-size: 12px; }
 .goal-page-summary strong { color: #d7e9cc; font-size: 15px; }
+.monthly-goals { margin-bottom: 43px; padding: 25px; border: 1px solid #415944; border-radius: 22px; background: linear-gradient(145deg, #203329, #1c2a23 75%); }
+.monthly-goals-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 19px; }
+.monthly-goals-heading h2 { margin: 5px 0 6px; font-size: clamp(23px, 2.3vw, 31px); }
+.monthly-goals-heading p { margin: 0; color: #aabda9; font-size: 12px; }
+.monthly-goals-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.monthly-goals-controls button { padding: 9px 11px; white-space: nowrap; font-size: 11px; }
+.monthly-goals-controls button:last-child { margin-left: 8px; }
+.app-shell .workspace .monthly-goal-editor { display: grid; gap: 16px; margin-bottom: 18px; padding: 21px; border-color: #668058; }
+.monthly-goal-editor label { gap: 7px; font-size: 12px; font-weight: 650; }
+.monthly-goal-editor textarea { min-height: 74px; resize: vertical; }
+.monthly-form-row { display: grid; grid-template-columns: minmax(160px, .35fr) minmax(260px, .65fr); gap: 13px; }
+.monthly-goal-editor .form-actions { margin: 0; }
+.monthly-goals-list { display: grid; gap: 10px; }
+.monthly-goal-card { display: flex; align-items: start; gap: 15px; padding: 16px 18px; border: 1px solid #405747; border-radius: 14px; background: #283a2e; }
+.workspace .monthly-goal-check { flex: 0 0 24px; width: 24px; height: 24px; padding: 0; border: 1px solid #8aa878; border-radius: 7px; color: #18311f; background: transparent; font-size: 15px; line-height: 1; }
+.workspace .monthly-goal-check[aria-pressed="true"] { background: #b9db90; }
+.workspace .monthly-goal-check:hover:not(:disabled) { background: #445c3c; }
+.monthly-goal-body { flex: 1; min-width: 0; }
+.monthly-goal-parent { color: #a9c88f; font-size: 10px; font-weight: 650; }
+.monthly-goal-body h3 { margin: 6px 0; color: #eff5ea; font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
+.monthly-goal-body p { margin: 0 0 7px; color: #b8cbb7; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+.monthly-goal-body small { display: block; color: #b4d29f; font-size: 11px; overflow-wrap: anywhere; }
+.monthly-goal-card.is-complete .monthly-goal-body h3 { color: #9fb19e; text-decoration: line-through; }
+.monthly-goal-actions { display: flex; gap: 12px; align-items: center; }
+.monthly-goal-actions button { padding: 4px 0; font-size: 11px; }
+.monthly-goals-empty { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 16px; border: 1px dashed #49644a; border-radius: 14px; color: #a8bca8; font-size: 12px; }
+.monthly-goals-progress { margin: 12px 1px 0; color: #9eb397; font-size: 11px; }
 .app-shell .workspace .goal-editor { margin-bottom: 24px; padding: 28px; border-color: #617d57; }
 .goal-editor .section-heading h2 { margin-top: 6px; }
 .goal-editor form { display: grid; gap: 18px; }
@@ -75,6 +109,7 @@
 
 @media (max-width: 1100px) { .goal-spotlight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 800px) { .goal-list { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .monthly-goals-heading { align-items: start; flex-direction: column; } }
 @media (max-width: 600px) {
   .goal-spotlight { padding: 21px; }
   .goal-spotlight-grid { grid-template-columns: 1fr; }
@@ -85,4 +120,8 @@
   .goals-page header { gap: 16px; }
   .app-shell .workspace .goal-editor { padding: 21px; }
   .goal-page-summary > span { padding: 7px 11px; }
+  .monthly-goals { padding: 20px; }
+  .monthly-form-row { grid-template-columns: 1fr; }
+  .monthly-goal-card { flex-wrap: wrap; }
+  .monthly-goal-actions { width: 100%; padding-left: 39px; }
 }

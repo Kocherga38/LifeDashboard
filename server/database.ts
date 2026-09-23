@@ -145,6 +145,20 @@ export async function migrate(db: DB) {
       )`
     )
     await client.query(
+      `CREATE TABLE IF NOT EXISTS monthly_goals(
+        id UUID PRIMARY KEY,
+        parent_id UUID NOT NULL REFERENCES personal_goals(id) ON DELETE CASCADE,
+        month DATE NOT NULL CHECK(EXTRACT(DAY FROM month) = 1),
+        title VARCHAR(160) NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        next_step VARCHAR(300) NOT NULL DEFAULT '',
+        completed BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS monthly_goals_month_idx ON monthly_goals(month,parent_id)`)
+    await client.query(
       `CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value JSONB NOT NULL)`
     )
     await client.query(

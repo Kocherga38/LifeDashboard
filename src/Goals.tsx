@@ -3,11 +3,12 @@ import type { FormEvent } from 'react'
 import { api, today } from './api'
 import type { PersonalGoal } from './goalTypes'
 import { goalDeadline, visibleGoals } from './goalTypes'
+import MonthlyGoals from './MonthlyGoals'
 
 type FormState = { title: string; description: string; nextStep: string; dueDate: string; pinned: boolean }
 const emptyForm = (): FormState => ({ title: '', description: '', nextStep: '', dueDate: '', pinned: true })
 
-export default function Goals() {
+export default function Goals({ initialMonth }: { initialMonth: string }) {
   const [items, setItems] = useState<PersonalGoal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -15,6 +16,7 @@ export default function Goals() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<PersonalGoal | null>(null)
   const [busy, setBusy] = useState(false)
+  const [monthlyRefresh, setMonthlyRefresh] = useState(0)
   const editor = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -72,11 +74,12 @@ export default function Goals() {
   }
 
   async function remove(goal: PersonalGoal) {
-    if (busy || !window.confirm(`Удалить цель «${goal.title}»?`)) return
+    if (busy || !window.confirm(`Удалить цель «${goal.title}» вместе с её подцелями по месяцам?`)) return
     setBusy(true); setError('')
     try {
       await api<void>(`/api/personal-goals/${goal.id}`, { method: 'DELETE' })
       setItems((current) => current.filter((item) => item.id !== goal.id))
+      setMonthlyRefresh((value) => value + 1)
       if (editing?.id === goal.id) closeEditor()
     } catch (e) { setError((e as Error).message) }
     finally { setBusy(false) }
@@ -115,6 +118,8 @@ export default function Goals() {
     </section>}
     <div className="goal-page-summary"><span><strong>{active.length}</strong> в работе</span><span><strong>{pinned}</strong> перед глазами</span><span><strong>{inactive.filter((goal) => goal.status === 'completed').length}</strong> завершено</span></div>
     {loading ? <p className="muted">Загружаю цели…</p> : <>
+      <MonthlyGoals parents={items} refreshKey={monthlyRefresh} initialMonth={initialMonth} />
+      <div className="goal-archive-heading"><span className="eyebrow">ДАЛЬНИЙ ГОРИЗОНТ</span><h2>Большие цели</h2></div>
       {active.length ? <section className="goal-list" aria-label="Активные цели">{active.map(renderGoal)}</section> : <div className="card goal-empty"><span aria-hidden="true">✳</span><h2>Место для того, что важно</h2><p>Начни с одной цели. Названия и пары строк достаточно — план можно уточнить позже.</p><button onClick={() => openEditor()}>Создать первую цель →</button></div>}
       {inactive.length > 0 && <section className="goal-archive"><div className="goal-archive-heading"><span className="eyebrow">ИСТОРИЯ</span><h2>На паузе и завершённые</h2></div><div className="goal-list">{inactive.map(renderGoal)}</div></section>}
     </>}

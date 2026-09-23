@@ -1,8 +1,10 @@
-import type { PersonalGoal } from './goalTypes'
-import { goalDeadline, visibleGoals } from './goalTypes'
+import type { MonthlyGoal, PersonalGoal } from './goalTypes'
+import { goalDeadline, monthLabel, visibleGoals } from './goalTypes'
 
-export default function GoalSpotlight({ goals, reference, onNavigate, weekly = false }: {
+export default function GoalSpotlight({ goals, monthlyGoals, month, reference, onNavigate, weekly = false }: {
   goals: PersonalGoal[]
+  monthlyGoals: MonthlyGoal[]
+  month: string
   reference: string
   onNavigate: () => void
   weekly?: boolean
@@ -13,6 +15,13 @@ export default function GoalSpotlight({ goals, reference, onNavigate, weekly = f
       <div><span className="eyebrow">{weekly ? 'ДЕРЖАТЬ КУРС' : 'ПЕРЕД ГЛАЗАМИ'}</span><h2 id={weekly ? 'weekly-goals-title' : 'today-goals-title'}>Мои цели</h2></div>
       <button className="link-button" onClick={onNavigate}>{shown.length ? 'Все цели' : 'Создать цель'} →</button>
     </div>
+    {!!monthlyGoals.length && <div className="goal-spotlight-month">
+      <span>ПЛАН НА {monthLabel(month).toLocaleUpperCase('ru-RU')}</span>
+      <div>{monthlyGoals.slice(0, 3).map((goal) => <div key={goal.id} className={goal.completed ? 'done' : ''}>
+        <span aria-hidden="true">{goal.completed ? '✓' : '○'}</span><strong>{goal.title}</strong>
+      </div>)}</div>
+      {monthlyGoals.length > 3 && <button className="link-button" onClick={onNavigate}>Ещё {monthlyGoals.length - 3} →</button>}
+    </div>}
     {shown.length ? <>
       <div className="goal-spotlight-grid">
         {shown.slice(0, 3).map((goal, index) => <article className="goal-preview" key={goal.id}>

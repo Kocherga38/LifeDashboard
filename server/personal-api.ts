@@ -61,6 +61,59 @@ export function createPersonalApi(db: DB) {
     res.status(204).end()
   })
 
+  const monthlyFields = `id,parent_id AS "parentId",to_char(month,'YYYY-MM') AS month,title,description,next_step AS "nextStep",completed,created_at AS "createdAt",updated_at AS "updatedAt"`
+  const monthlyInput = (body: Record<string, unknown> | undefined) => {
+    const { parentId, month, title, description = '', nextStep = '', completed = false } = body ?? {}
+    if (
+      typeof parentId !== 'string' || !idValid(parentId) ||
+      typeof month !== 'string' || !/^\d{4}-\d{2}$/.test(month) || !validDate(`${month}-01`) ||
+      !textValid(title, 160) || typeof description !== 'string' || description.length > 4000 ||
+      typeof nextStep !== 'string' || nextStep.length > 300 || typeof completed !== 'boolean'
+    ) throw new Error('Проверь большую цель, месяц и описание подцели.')
+    return { parentId, month, title: title.trim(), description: description.trim(), nextStep: nextStep.trim(), completed }
+  }
+
+  app.get('/api/monthly-goals', async (req, res) => {
+    const month = req.query.month
+    if (typeof month !== 'string' || !/^\d{4}-\d{2}$/.test(month) || !validDate(`${month}-01`))
+      throw new Error('Выбери корректный месяц.')
+    res.json((await db.query(
+      `SELECT ${monthlyFields} FROM monthly_goals WHERE month=$1::date
+       ORDER BY completed ASC,created_at ASC,id`, [`${month}-01`]
+    )).rows)
+  })
+  app.post('/api/monthly-goals', async (req, res) => {
+    const goal = monthlyInput(req.body)
+    const result = await db.query(
+      `INSERT INTO monthly_goals(id,parent_id,month,title,description,next_step,completed)
+       SELECT $1,id,$3::date,$4,$5,$6,$7 FROM personal_goals WHERE id=$2
+       RETURNING ${monthlyFields}`,
+      [randomUUID(), goal.parentId, `${goal.month}-01`, goal.title, goal.description, goal.nextStep, goal.completed]
+    )
+    if (!result.rows.length) { res.status(404).json({ error: 'Большая цель не найдена.' }); return }
+    res.status(201).json(result.rows[0])
+  })
+  app.put('/api/monthly-goals/:id', async (req, res) => {
+    const id = String(req.params.id)
+    if (!idValid(id)) throw new Error('Некорректный ID подцели.')
+    const goal = monthlyInput(req.body)
+    const result = await db.query(
+      `UPDATE monthly_goals SET parent_id=$2,month=$3::date,title=$4,description=$5,next_step=$6,
+       completed=$7,updated_at=NOW() WHERE id=$1 AND EXISTS(SELECT 1 FROM personal_goals WHERE id=$2)
+       RETURNING ${monthlyFields}`,
+      [id, goal.parentId, `${goal.month}-01`, goal.title, goal.description, goal.nextStep, goal.completed]
+    )
+    if (!result.rows.length) { res.status(404).json({ error: 'Подцель или большая цель не найдена.' }); return }
+    res.json(result.rows[0])
+  })
+  app.delete('/api/monthly-goals/:id', async (req, res) => {
+    const id = String(req.params.id)
+    if (!idValid(id)) throw new Error('Некорректный ID подцели.')
+    const result = await db.query(`DELETE FROM monthly_goals WHERE id=$1 RETURNING id`, [id])
+    if (!result.rows.length) { res.status(404).json({ error: 'Подцель не найдена.' }); return }
+    res.status(204).end()
+  })
+
   app.get('/api/note-folders', async (_req, res) => {
     res.json((await db.query(`SELECT id,name,parent_id AS "parentId" FROM note_folders ORDER BY name,id`)).rows)
   })
@@ -260,7 +313,7 @@ export function createPersonalApi(db: DB) {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
       for (const table of [
         'expenses','budgets','journal_entries','tasks','task_occurrences','note_folders','notes',
-        'diary_entries','flashcards','habits','habit_marks','personal_goals','app_settings','import_batches','imported_rows'
+        'diary_entries','flashcards','habits','habit_marks','personal_goals','monthly_goals','app_settings','import_batches','imported_rows'
       ]) result[table] = (await client.query(`SELECT * FROM ${table}`)).rows
       await client.query('COMMIT')
     } catch (e) {

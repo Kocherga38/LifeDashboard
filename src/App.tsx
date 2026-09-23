@@ -11,7 +11,7 @@ import Today from './Today'
 import WeeklyReview from './WeeklyReview'
 import Goals from './Goals'
 import ErrorBoundary from './ErrorBoundary'
-import { api } from './api'
+import { api, today } from './api'
 import type { Kind } from '../shared/journals'
 import './analytics.css'
 import './journals.css'
@@ -53,6 +53,7 @@ function tabsInOrder(order: string[]) {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('today')
+  const [goalMonth, setGoalMonth] = useState(() => today().slice(0, 7))
   const [orderedTabs, setOrderedTabs] = useState(tabs)
   const [ordering, setOrdering] = useState(false)
   const [draggedTab, setDraggedTab] = useState<Tab | null>(null)
@@ -131,7 +132,7 @@ export default function App() {
               <button
                 className={tab === item.key ? 'selected' : ''}
                 aria-current={tab === item.key ? 'page' : undefined}
-                onClick={() => setTab(item.key)}
+                onClick={() => { if (item.key === 'goals') setGoalMonth(today().slice(0, 7)); setTab(item.key) }}
               >
                 <span>{item.icon}</span>
                 {item.label}
@@ -155,11 +156,11 @@ export default function App() {
             }
           >
             {tab === 'today' ? (
-              <Today onNavigate={(next) => setTab(next)} />
+              <Today onNavigate={(next) => { if (next === 'goals') setGoalMonth(today().slice(0, 7)); setTab(next) }} />
             ) : tab === 'weekly' ? (
-              <WeeklyReview onNavigate={() => setTab('goals')} />
+              <WeeklyReview onNavigate={(month) => { setGoalMonth(month); setTab('goals') }} />
             ) : tab === 'goals' ? (
-              <Goals />
+              <Goals initialMonth={goalMonth} />
             ) : tab === 'operations' ? (
               <Operations />
             ) : tab === 'analytics' ? (

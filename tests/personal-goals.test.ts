@@ -35,6 +35,22 @@ test('Цели сохраняются, меняют статус и входят
     assert.equal((await request('/api/personal-goals')).body.length, 1)
     assert.equal((await request('/api/personal-goals', 'POST', { ...input, dueDate: '2027-02-30' })).status, 400)
 
+    const october = { parentId: created.body.id, month: '2026-10', title: 'Начать тренировки', description: 'Оформить абонемент и войти в ритм', nextStep: 'Найти зал' }
+    assert.equal((await request('/api/monthly-goals', 'POST', { ...october, month: '2026-13' })).status, 400)
+    assert.equal((await request('/api/monthly-goals', 'POST', { ...october, parentId: '22222222-2222-4222-8222-222222222222' })).status, 404)
+    const subgoal = await request('/api/monthly-goals', 'POST', october)
+    assert.equal(subgoal.status, 201)
+    assert.equal(subgoal.body.month, '2026-10')
+    assert.equal(subgoal.body.parentId, created.body.id)
+    assert.equal((await request('/api/monthly-goals?month=2026-10')).body.length, 1)
+    assert.deepEqual((await request('/api/monthly-goals?month=2026-11')).body, [])
+    assert.equal((await request('/api/monthly-goals?month=bad')).status, 400)
+    const moved = await request(`/api/monthly-goals/${subgoal.body.id}`, 'PUT', { ...october, month: '2026-11', completed: true })
+    assert.equal(moved.body.completed, true)
+    assert.equal(moved.body.month, '2026-11')
+    assert.deepEqual((await request('/api/monthly-goals?month=2026-10')).body, [])
+    assert.equal((await request('/api/monthly-goals?month=2026-11')).body[0].title, october.title)
+
     const changed = await request(`/api/personal-goals/${created.body.id}`, 'PUT', {
       ...input, title: 'Вес 70 кг', status: 'paused', pinned: false
     })
@@ -46,8 +62,10 @@ test('Цели сохраняются, меняют статус и входят
     const exportResult = await request('/api/export')
     assert.equal(exportResult.body.personal_goals.length, 1)
     assert.equal(exportResult.body.personal_goals[0].title, 'Вес 70 кг')
+    assert.equal(exportResult.body.monthly_goals.length, 1)
     assert.equal((await request(`/api/personal-goals/${created.body.id}`, 'DELETE')).status, 204)
     assert.deepEqual((await request('/api/personal-goals')).body, [])
+    assert.deepEqual((await request('/api/monthly-goals?month=2026-11')).body, [])
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()))
     await db.end()

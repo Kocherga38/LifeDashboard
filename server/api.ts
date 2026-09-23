@@ -852,7 +852,7 @@ export function createApi(db: DB) {
         'journal_entries',
         'tasks',
         'task_occurrences',
-        'personal_goals',
+        'personal_goals','monthly_goals',
         'app_settings',
         'import_batches',
         'imported_rows'
