@@ -497,20 +497,21 @@ export default function Journal({ kind }: { kind: Kind }) {
             <div className="chart-box">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chart}>
-                  <CartesianGrid stroke="#e3e9e0" strokeDasharray="3 3" />
+                  <CartesianGrid stroke="#3a4a3e" strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
-                    stroke="#809182"
+                    stroke="#a5b5a6"
                     tickFormatter={(d) => String(d).slice(5).split('-').reverse().join('.')}
                   />
                   <YAxis
-                    stroke="#809182"
+                    stroke="#a5b5a6"
                     domain={kind === 'weights' ? ['auto', 'auto'] : [0, 'auto']}
                   />
                   <Tooltip
                     contentStyle={{
-                      background: '#fffefa',
-                      border: '1px solid #dce6d9',
+                      background: '#203027',
+                      border: '1px solid #465a48',
+                      color: '#e8f0e9',
                       borderRadius: 12
                     }}
                     formatter={(v) => (v === null ? 'Не заполнено' : num(Number(v)))}
@@ -519,7 +520,7 @@ export default function Journal({ kind }: { kind: Kind }) {
                     animationDuration={300}
                     dataKey="value"
                     name={kind === 'weights' ? 'Вес, кг' : kind === 'shifts' ? '₽/ч' : 'Повторения'}
-                    stroke="#4c9367"
+                    stroke="#a5cf87"
                     strokeWidth={2}
                     dot={{ r: 4 }}
                     connectNulls={false}
@@ -529,7 +530,7 @@ export default function Journal({ kind }: { kind: Kind }) {
                       animationDuration={300}
                       dataKey="average"
                       name="Среднее за 7 дней"
-                      stroke="#ae94ca"
+                      stroke="#b599d4"
                       strokeWidth={2}
                     />
                   )}

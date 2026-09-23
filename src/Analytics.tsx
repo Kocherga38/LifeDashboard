@@ -30,14 +30,14 @@ type Budget = {
 }
 
 const colors = [
-  '#3c845b',
-  '#a588cc',
-  '#5ca7b6',
-  '#d39a57',
-  '#cd849b',
-  '#728ecb',
-  '#b9ac55',
-  '#5caa91'
+  '#9dcc87',
+  '#b599d4',
+  '#79bdc6',
+  '#dbad76',
+  '#d79ab0',
+  '#89a6d8',
+  '#cbbb70',
+  '#82c5ae'
 ]
 
 const defaultCategories = [
@@ -98,10 +98,10 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 const tooltipStyle = {
-  backgroundColor: '#fffefa',
-  border: '1px solid #dce6d9',
+  backgroundColor: '#203027',
+  border: '1px solid #465a48',
   borderRadius: 12,
-  color: '#20342b'
+  color: '#e8f0e9'
 }
 
 export default function Analytics() {
@@ -382,17 +382,17 @@ export default function Analytics() {
               <div className="chart-box">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dailyData} margin={{ top: 12, right: 12, bottom: 0, left: 8 }}>
-                    <CartesianGrid stroke="#e3e9e0" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="day" stroke="#809182" tickLine={false} />
+                    <CartesianGrid stroke="#3a4a3e" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="day" stroke="#a5b5a6" tickLine={false} />
                     <YAxis
-                      stroke="#809182"
+                      stroke="#a5b5a6"
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={shortNumber}
                     />
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      itemStyle={{ color: '#20342b' }}
+                      itemStyle={{ color: '#e8f0e9' }}
                       cursor={{ fill: '#d8ed9d33' }}
                       formatter={(value) => money(Number(value))}
                       labelFormatter={(value) =>
@@ -403,7 +403,7 @@ export default function Analytics() {
                       animationDuration={300}
                       dataKey="amount"
                       name="Расходы"
-                      fill="#4c9367"
+                      fill="#a5cf87"
                       radius={[5, 5, 0, 0]}
                       maxBarSize={32}
                     />
@@ -419,22 +419,22 @@ export default function Analytics() {
               <div className="chart-box">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyData} margin={{ top: 12, right: 8, bottom: 8, left: 8 }}>
-                    <CartesianGrid stroke="#e3e9e0" strokeDasharray="3 3" vertical={false} />
+                    <CartesianGrid stroke="#3a4a3e" strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       dataKey="label"
-                      stroke="#809182"
+                      stroke="#a5b5a6"
                       tick={{ fontSize: 11 }}
                       tickLine={false}
                     />
                     <YAxis
-                      stroke="#809182"
+                      stroke="#a5b5a6"
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={shortNumber}
                     />
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      itemStyle={{ color: '#20342b' }}
+                      itemStyle={{ color: '#e8f0e9' }}
                       cursor={{ fill: '#d8ed9d33' }}
                       formatter={(value) => money(Number(value))}
                     />
@@ -443,14 +443,14 @@ export default function Analytics() {
                       animationDuration={300}
                       dataKey="income"
                       name="Доходы"
-                      fill="#4c9367"
+                      fill="#a5cf87"
                       radius={[4, 4, 0, 0]}
                     />
                     <Bar
                       animationDuration={300}
                       dataKey="expense"
                       name="Расходы"
-                      fill="#ae94ca"
+                      fill="#b599d4"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
@@ -481,7 +481,7 @@ export default function Analytics() {
                         />
                         <Tooltip
                           contentStyle={tooltipStyle}
-                          itemStyle={{ color: '#20342b' }}
+                          itemStyle={{ color: '#e8f0e9' }}
                           formatter={(value) => money(Number(value))}
                         />
                       </PieChart>
@@ -603,7 +603,7 @@ export default function Analytics() {
                       className="bar"
                       style={{
                         width: `${Math.min(item.percent, 100)}%`,
-                        background: item.remaining < 0 ? '#c5776c' : '#4c9367'
+                        background: item.remaining < 0 ? '#d78b83' : '#a5cf87'
                       }}
                     />
                   </div>
