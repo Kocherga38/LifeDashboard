@@ -474,7 +474,7 @@ export default function Operations() {
     <main>
       <header>
         <div>
-          <p className="eyebrow">LIFE / ЛИЧНАЯ СТАТИСТИКА</p>
+          <p className="eyebrow">TRELLIS / ФИНАНСЫ</p>
           <h1>Мои деньги</h1>
           <p className="muted">Доходы, расходы и картина за месяц.</p>
         </div>
@@ -733,7 +733,7 @@ export default function Operations() {
         <div className="section-heading">
           <div>
             <h2>Шаблоны</h2>
-            <p className="muted template-hint">Один тап — и полноценная операция уже в Life.</p>
+            <p className="muted template-hint">Один тап — и полноценная операция уже в Trellis.</p>
           </div>
           <button
             type="button"

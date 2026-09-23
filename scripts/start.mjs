@@ -19,7 +19,7 @@ const hash = createHash('sha256')
   .digest('hex')
 let install = false
 try {
-  install = (await readFile('node_modules/.life-lock', 'utf8')) !== hash
+  install = (await readFile('node_modules/.trellis-lock', 'utf8')) !== hash
   await access('node_modules/tsx/package.json')
 } catch {
   install = true
@@ -37,7 +37,7 @@ try {
   if (install) {
     console.log('Первый запуск: устанавливаю зафиксированные зависимости…')
     await run('npm', ['ci', '--include=dev', '--ignore-scripts', '--no-audit', '--no-fund'])
-    await writeFile('node_modules/.life-lock', hash)
+    await writeFile('node_modules/.trellis-lock', hash)
   }
   const args = [
     '--import',

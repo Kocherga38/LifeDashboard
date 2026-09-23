@@ -315,7 +315,7 @@ export default function Journal({ kind }: { kind: Kind }) {
     <main>
       <header>
         <div>
-          <p className="eyebrow">LIFE / ЛИЧНЫЙ ЖУРНАЛ</p>
+          <p className="eyebrow">TRELLIS / ЛИЧНЫЙ ЖУРНАЛ</p>
           <h1>{meta.title}</h1>
           <p className="muted">{meta.description}</p>
         </div>
@@ -497,20 +497,20 @@ export default function Journal({ kind }: { kind: Kind }) {
             <div className="chart-box">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chart}>
-                  <CartesianGrid stroke="#303846" strokeDasharray="3 3" />
+                  <CartesianGrid stroke="#e3e9e0" strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
-                    stroke="#969eaf"
+                    stroke="#809182"
                     tickFormatter={(d) => String(d).slice(5).split('-').reverse().join('.')}
                   />
                   <YAxis
-                    stroke="#969eaf"
+                    stroke="#809182"
                     domain={kind === 'weights' ? ['auto', 'auto'] : [0, 'auto']}
                   />
                   <Tooltip
                     contentStyle={{
-                      background: '#202632',
-                      border: '1px solid #414b5d',
+                      background: '#fffefa',
+                      border: '1px solid #dce6d9',
                       borderRadius: 12
                     }}
                     formatter={(v) => (v === null ? 'Не заполнено' : num(Number(v)))}
@@ -519,7 +519,7 @@ export default function Journal({ kind }: { kind: Kind }) {
                     animationDuration={300}
                     dataKey="value"
                     name={kind === 'weights' ? 'Вес, кг' : kind === 'shifts' ? '₽/ч' : 'Повторения'}
-                    stroke="#b6f36b"
+                    stroke="#4c9367"
                     strokeWidth={2}
                     dot={{ r: 4 }}
                     connectNulls={false}
@@ -529,7 +529,7 @@ export default function Journal({ kind }: { kind: Kind }) {
                       animationDuration={300}
                       dataKey="average"
                       name="Среднее за 7 дней"
-                      stroke="#a78bfa"
+                      stroke="#ae94ca"
                       strokeWidth={2}
                     />
                   )}

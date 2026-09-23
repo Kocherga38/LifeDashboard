@@ -6,7 +6,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
     return { error: error.message }
   }
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('LIFE: ошибка раздела', error, info.componentStack)
+    console.error('Trellis: ошибка раздела', error, info.componentStack)
   }
   render() {
     return this.state.error ? (

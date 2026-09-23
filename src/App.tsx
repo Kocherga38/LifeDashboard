@@ -93,8 +93,15 @@ export default function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          LIFE<span> / </span>SYSTEM<small>Твоя жизнь в деталях</small>
+          <span className="brand-symbol" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path d="M9 38V10M24 38V10M39 38V10M9 16C15 16 18 22 24 22S33 16 39 16M9 31C15 31 18 25 24 25S33 31 39 31" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+              <circle cx="9" cy="10" r="3" fill="currentColor" /><circle cx="24" cy="10" r="3" fill="currentColor" /><circle cx="39" cy="10" r="3" fill="currentColor" />
+            </svg>
+          </span>
+          <span className="brand-copy"><strong>Trellis</strong><small>Личная система</small></span>
         </div>
+        <div className="sidebar-section-label">ПРОСТРАНСТВО <span>01 / 16</span></div>
         <button
           className={`sidebar-order-toggle ${ordering ? 'active' : ''}`}
           onClick={() => { setOrdering((value) => !value); setDraggedTab(null) }}
@@ -132,8 +139,8 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span className="status-dot" />
-          Локально на твоём Mac<small>Версия 1.0 · PostgreSQL</small>
+          <div className="sidebar-footer-icon" aria-hidden="true">↗</div>
+          <div><span className="status-dot" />Твоё пространство<small>Данные хранятся локально</small></div>
         </div>
       </aside>
       <div className="workspace">

@@ -9,7 +9,7 @@ try {
     open: process.env.NO_OPEN !== '1'
   })
 } catch (error) {
-  console.error('\nНе удалось запустить LIFE.\n')
+  console.error('\nНе удалось запустить Trellis.\n')
   const e = error as { code?: string; message?: string }
   if (['ECONNREFUSED', 'ETIMEDOUT'].includes(e.code || '') || e.message?.includes('timeout')) {
     console.error('Открой Postgres.app → Start. Затем снова запусти приложение.')

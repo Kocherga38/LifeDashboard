@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { api, money, today } from './api'
 import './overview.css'
 
@@ -75,13 +76,25 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
     } catch (e) { setError((e as Error).message) }
   }
 
+  const taskProgress = tasks.length ? Math.round(completedTasks / tasks.length * 100) : 0
+  const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
+
   return <main className="overview-page">
-    <header>
-      <div><div className="eyebrow">СЕГОДНЯ</div><h1>{new Date(date + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</h1><p className="muted">Один экран на текущий день: планы, действия и короткий снимок жизни.</p></div>
-      <button className="secondary" onClick={load}>Обновить</button>
-    </header>
+    <section className="today-hero" aria-labelledby="today-title">
+      <div className="hero-pattern" aria-hidden="true" />
+      <div className="hero-content">
+        <div className="hero-topline"><span className="hero-label"><span className="hero-spark" /> TRELLIS / ТВОЙ ДЕНЬ</span><button className="hero-refresh" onClick={load} title="Обновить данные">↻ <span>Обновить</span></button></div>
+        <div className="hero-main"><div><p className="hero-pretitle">Всё начинается с сегодня</p><h1 id="today-title">{dateLabel}</h1><p className="hero-description">Планы, действия и то, что уже происходит. Всё в одном месте.</p></div>
+          <div className="hero-progress" style={{ '--progress': `${taskProgress}%` } as CSSProperties} aria-label={`Выполнено ${completedTasks} из ${tasks.length} задач`}>
+            <div><strong>{taskProgress}<span>%</span></strong><small>задач сделано</small></div>
+          </div>
+        </div>
+        <div className="hero-bottom"><span>{String(tasks.length).padStart(2, '0')} <small>задач</small></span><span>{String(marked.size).padStart(2, '0')} <small>действий отмечено</small></span><span>{String(todayDiary.length).padStart(2, '0')} <small>записей в дневнике</small></span></div>
+      </div>
+    </section>
     {error && <div className="message error">{error}</div>}
 
+    <div className="overview-section-intro"><div><span className="eyebrow">В ФОКУСЕ</span><h2>Твой день, по частям</h2></div><span>01 / ОБЗОР</span></div>
     <section className="today-grid">
       <article className="card overview-block">
         <div className="overview-block-head"><div><span className="kicker">ПЛАН</span><h2>Задачи</h2></div><button className="link-button" onClick={() => onNavigate('calendar')}>Календарь →</button></div>
@@ -98,29 +111,29 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
         <div className="habit-today-grid">{habits.length ? habits.map((h) => <button key={h.id} className={`habit-today ${marked.has(h.id) ? 'done' : ''}`} onClick={() => toggleHabit(h)}><span className="habit-check">{marked.has(h.id) ? '✓' : ''}</span><span>{h.name}</span></button>) : <p className="muted">Создай действия, которые хочешь отмечать по датам.</p>}</div>
       </article>
 
-      <article className="card quick-card accent-card" onClick={() => onNavigate('flashcards')}>
-        <span className="kicker">ПОВТОРЕНИЕ</span><strong>{dueCards}</strong><span>карточек пора повторить</span><small>Открыть карточки →</small>
-      </article>
+      <button className="card quick-card accent-card" onClick={() => onNavigate('flashcards')}>
+        <span className="quick-icon" aria-hidden="true">◫</span><span className="kicker">ПОВТОРЕНИЕ</span><strong>{dueCards}</strong><span>карточек пора повторить</span><small>Открыть карточки ↗</small>
+      </button>
 
-      <article className="card quick-card" onClick={() => onNavigate('operations')}>
-        <span className="kicker">ДЕНЬГИ СЕГОДНЯ</span><strong>{spent ? '− ' + money(spent) : money(0)}</strong><span>{earned ? 'доход +' + money(earned) : 'доходов сегодня нет'}</span><small>Операции →</small>
-      </article>
+      <button className="card quick-card" onClick={() => onNavigate('operations')}>
+        <span className="quick-icon" aria-hidden="true">↗</span><span className="kicker">ДЕНЬГИ СЕГОДНЯ</span><strong>{spent ? '− ' + money(spent) : money(0)}</strong><span>{earned ? 'доход +' + money(earned) : 'доходов сегодня нет'}</span><small>Операции ↗</small>
+      </button>
 
-      <article className="card quick-card" onClick={() => onNavigate('shifts')}>
-        <span className="kicker">РАБОТА</span><strong>{todayShift.length ? todayShift.reduce((s, x) => s + Number(x.hours || 0), 0).toLocaleString('ru-RU') + ' ч' : '—'}</strong><span>{todayShift.length ? todayShift.map((x) => x.name).filter(Boolean).join(', ') : 'смен сегодня нет'}</span><small>Смены →</small>
-      </article>
+      <button className="card quick-card" onClick={() => onNavigate('shifts')}>
+        <span className="quick-icon" aria-hidden="true">⌁</span><span className="kicker">РАБОТА</span><strong>{todayShift.length ? todayShift.reduce((s, x) => s + Number(x.hours || 0), 0).toLocaleString('ru-RU') + ' ч' : '—'}</strong><span>{todayShift.length ? todayShift.map((x) => x.name).filter(Boolean).join(', ') : 'смен сегодня нет'}</span><small>Смены ↗</small>
+      </button>
 
-      <article className="card quick-card" onClick={() => onNavigate('workouts')}>
-        <span className="kicker">ТРЕНИРОВКА</span><strong>{todayWorkout.length}</strong><span>{todayWorkout.length ? 'упражнений записано' : 'сегодня ничего не записано'}</span><small>Тренировки →</small>
-      </article>
+      <button className="card quick-card" onClick={() => onNavigate('workouts')}>
+        <span className="quick-icon" aria-hidden="true">✳</span><span className="kicker">ТРЕНИРОВКА</span><strong>{todayWorkout.length}</strong><span>{todayWorkout.length ? 'упражнений записано' : 'сегодня ничего не записано'}</span><small>Тренировки ↗</small>
+      </button>
 
-      <article className="card quick-card" onClick={() => onNavigate('weights')}>
-        <span className="kicker">ВЕС</span><strong>{todayWeight ? Number(todayWeight.weight).toLocaleString('ru-RU') + ' кг' : '—'}</strong><span>{todayWeight ? 'замер за сегодня' : 'сегодня не взвешивался'}</span><small>Вес →</small>
-      </article>
+      <button className="card quick-card" onClick={() => onNavigate('weights')}>
+        <span className="quick-icon" aria-hidden="true">↝</span><span className="kicker">ВЕС</span><strong>{todayWeight ? Number(todayWeight.weight).toLocaleString('ru-RU') + ' кг' : '—'}</strong><span>{todayWeight ? 'замер за сегодня' : 'сегодня не взвешивался'}</span><small>Вес ↗</small>
+      </button>
 
-      <article className="card quick-card" onClick={() => onNavigate('diary')}>
-        <span className="kicker">ДНЕВНИК</span><strong>{todayDiary.length}</strong><span>{todayDiary.length ? 'записей сегодня' : 'сегодня записей нет'}</span><small>Дневник →</small>
-      </article>
+      <button className="card quick-card" onClick={() => onNavigate('diary')}>
+        <span className="quick-icon" aria-hidden="true">✧</span><span className="kicker">ДНЕВНИК</span><strong>{todayDiary.length}</strong><span>{todayDiary.length ? 'записей сегодня' : 'сегодня записей нет'}</span><small>Дневник ↗</small>
+      </button>
     </section>
   </main>
 }

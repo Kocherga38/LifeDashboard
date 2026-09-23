@@ -65,7 +65,7 @@ export default function DataPage() {
     <main>
       <header>
         <div>
-          <p className="eyebrow">LIFE / ТВОИ ДАННЫЕ</p>
+          <p className="eyebrow">TRELLIS / ТВОИ ДАННЫЕ</p>
           <h1>Переезд из Excel</h1>
           <p className="muted">Импорт подготовленной таблицы и выгрузка данных приложения.</p>
         </div>

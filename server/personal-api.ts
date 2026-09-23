@@ -217,7 +217,7 @@ export function createPersonalApi(db: DB) {
       await client.query('ROLLBACK')
       throw e
     } finally { client.release() }
-    res.attachment(`life-backup-${new Date().toISOString().slice(0,10)}.json`).json(result)
+    res.attachment(`trellis-backup-${new Date().toISOString().slice(0,10)}.json`).json(result)
   })
 
   return app

@@ -37,7 +37,7 @@ export async function startServer(
   const server = createServer(app)
   app.use((req, res, next) => {
     if (req.path === '/api/health') {
-      res.json({ app: 'life-system', identity, version: '1.0.0' })
+      res.json({ app: 'trellis', identity, version: '1.0.0' })
       return
     }
     next()
@@ -51,9 +51,9 @@ export async function startServer(
         signal: AbortSignal.timeout(350)
       })
       const body = (await r.json().catch(() => null)) as { app?: string; identity?: string } | null
-      if (body?.app === 'life-system' && body.identity === identity) {
+      if (body?.app === 'trellis' && body.identity === identity) {
         const url = `http://localhost:${port}`
-        console.log(`LIFE уже работает: ${url}`)
+        console.log(`Trellis уже работает: ${url}`)
         if (options.open) openBrowser(url)
         await db.end?.()
         return null
@@ -105,7 +105,7 @@ export async function startServer(
     app.use((_req, res) => res.sendFile(path.join(root, 'dist/index.html')))
   }
   const url = `http://localhost:${port}`
-  console.log(`\nLIFE запущен: ${url}\nИнтерфейс и API работают вместе. Остановка: Control + C.\n`)
+  console.log(`\nTrellis запущен: ${url}\nИнтерфейс и API работают вместе. Остановка: Control + C.\n`)
   if (options.open) openBrowser(url)
   let closing = false
   const close = async () => {

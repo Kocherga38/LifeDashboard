@@ -864,7 +864,7 @@ export function createApi(db: DB) {
     } finally {
       client.release()
     }
-    res.attachment(`life-backup-${new Date().toISOString().slice(0, 10)}.json`).json(result)
+    res.attachment(`trellis-backup-${new Date().toISOString().slice(0, 10)}.json`).json(result)
   })
   app.use('/api', (_req, res) =>
     res.status(404).json({ error: 'Такого API нет. Перезапусти приложение.' })
