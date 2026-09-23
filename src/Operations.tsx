@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { buildFinancialForecast } from './financeForecast'
+import { defaultOperationCategories as defaultCategories } from '../shared/operationCategories'
 
 type OperationType = 'expense' | 'income'
+type OperationCategory = { id: string; name: string; type: OperationType }
 
 type Operation = {
   id: string
@@ -22,11 +24,6 @@ type OperationTemplate = Omit<Operation, 'date'> & {
   templateKind: TemplateKind
   recurrence: Recurrence | null
   nextDate: string | null
-}
-
-const defaultCategories = {
-  expense: ['Продукты', 'Транспорт', 'Жильё', 'Развлечения', 'Здоровье', 'Одежда', 'Другое'],
-  income: ['Подработки', 'Зарплата', 'Подарки', 'Другое']
 }
 
 function today() {
@@ -110,6 +107,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export default function Operations() {
   const [operations, setOperations] = useState<Operation[]>([])
   const [templates, setTemplates] = useState<OperationTemplate[]>([])
+  const [customCategories, setCustomCategories] = useState<OperationCategory[]>([])
   const [month, setMonth] = useState(today().slice(0, 7))
   const [title, setTitle] = useState('')
   const [amount, setAmount] = useState('')
@@ -119,6 +117,9 @@ export default function Operations() {
   const [search, setSearch] = useState('')
   const [type, setType] = useState<OperationType>('expense')
   const [category, setCategory] = useState('Продукты')
+  const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [categoryError, setCategoryError] = useState('')
   const [date, setDate] = useState(today)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -145,14 +146,16 @@ export default function Operations() {
 
     async function load() {
       try {
-        const [data, savedTemplates] = await Promise.all([
+        const [data, savedTemplates, savedCategories] = await Promise.all([
           request<Operation[]>('/api/expenses', { signal: controller.signal }),
-          request<OperationTemplate[]>('/api/templates', { signal: controller.signal })
+          request<OperationTemplate[]>('/api/templates', { signal: controller.signal }),
+          request<OperationCategory[]>('/api/operation-categories', { signal: controller.signal })
         ])
 
         if (!controller.signal.aborted) {
           setOperations(data)
           setTemplates(savedTemplates)
+          setCustomCategories(savedCategories)
           setLoaded(true)
         }
       } catch {
@@ -173,11 +176,18 @@ export default function Operations() {
   const categories = Array.from(
     new Set([
       ...defaultCategories[type],
+      ...customCategories.filter((item) => item.type === type).map((item) => item.name),
       ...operations.filter((item) => item.type === type).map((item) => item.category),
       ...templates.filter((item) => item.type === type).map((item) => item.category),
       category
     ])
   )
+  const templateCategories = Array.from(new Set([
+    ...defaultCategories[templateType],
+    ...customCategories.filter((item) => item.type === templateType).map((item) => item.name),
+    ...operations.filter((item) => item.type === templateType).map((item) => item.category),
+    ...templates.filter((item) => item.type === templateType).map((item) => item.category)
+  ]))
 
   const visible = operations
     .filter((item) => !month || item.date.startsWith(month))
@@ -361,6 +371,33 @@ export default function Operations() {
   function changeType(value: OperationType) {
     setType(value)
     setCategory(defaultCategories[value][0])
+    setCategoryEditorOpen(false)
+    setNewCategoryName('')
+    setCategoryError('')
+  }
+
+  async function saveCategory() {
+    if (disabled || inProgress.current) return
+    const name = newCategoryName.trim()
+    if (!name || name.length > 100) { setCategoryError('Введи название до 100 символов.'); return }
+    if (categories.some((item) => item.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru'))) {
+      setCategoryError('Такая категория уже есть.')
+      return
+    }
+    inProgress.current = true
+    setBusy(true)
+    setCategoryError('')
+    try {
+      const saved = await request<OperationCategory>('/api/operation-categories', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, type })
+      })
+      setCustomCategories((current) => [...current, saved])
+      setCategory(saved.name)
+      setNewCategoryName('')
+      setCategoryEditorOpen(false)
+    } catch (e) { setCategoryError((e as Error).message) }
+    finally { inProgress.current = false; setBusy(false) }
   }
 
   function edit(item: Operation) {
@@ -655,20 +692,20 @@ export default function Operations() {
               />
             </label>
 
-            <label>
-              Категория
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                disabled={disabled}
-              >
-                {categories.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="operation-category-field">
+              <label htmlFor="operation-category">Категория</label>
+              <div className="operation-category-select">
+                <select id="operation-category" value={category} onChange={(event) => setCategory(event.target.value)} disabled={disabled}>
+                  {categories.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
+                <button type="button" className="secondary" aria-label="Добавить категорию" title="Добавить категорию" disabled={disabled} onClick={() => { setCategoryEditorOpen((open) => !open); setCategoryError('') }}>+</button>
+              </div>
+              {categoryEditorOpen && <div className="operation-category-create">
+                <input aria-label="Название новой категории" autoFocus maxLength={100} value={newCategoryName} onChange={(event) => { setNewCategoryName(event.target.value); setCategoryError('') }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void saveCategory() } }} placeholder={type === 'expense' ? 'Например, Для дома' : 'Новая категория дохода'} disabled={disabled} />
+                <button type="button" onClick={() => void saveCategory()} disabled={disabled}>Сохранить</button>
+                {categoryError && <small role="alert">{categoryError}</small>}
+              </div>}
+            </div>
 
             <label>
               Дата
@@ -780,10 +817,12 @@ export default function Operations() {
                 <input
                   value={templateCategory}
                   onChange={(event) => setTemplateCategory(event.target.value)}
+                  list="template-category-options"
                   maxLength={100}
                   required
                   disabled={disabled}
                 />
+                <datalist id="template-category-options">{templateCategories.map((name) => <option key={name} value={name} />)}</datalist>
               </label>
               <label>
                 Тип

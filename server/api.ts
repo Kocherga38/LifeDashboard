@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import type { DB } from './database.js'
 import { isKind, validateEntry, validDate, nutrients } from '../shared/journals.js'
+import { defaultOperationCategories } from '../shared/operationCategories.js'
 
 const operationFields = `id,title,amount,category,type,subcategory,counterparty,note,to_char(operation_date,'YYYY-MM-DD') AS date`
 const budgetFields = `id,category,amount,to_char(month,'YYYY-MM') AS month`
@@ -159,6 +160,26 @@ export function createApi(db: DB) {
     next()
   })
   app.use(express.json({ limit: '2mb' }))
+  app.get('/api/operation-categories', async (_req, res) => {
+    res.json((await db.query(`SELECT id,name,type FROM operation_categories ORDER BY type,name,id`)).rows)
+  })
+  app.post('/api/operation-categories', async (req, res) => {
+    const { name, type } = req.body ?? {}
+    if (!textValid(name) || !['expense','income'].includes(type))
+      throw new Error('Проверь название и тип категории.')
+    const value = name.trim()
+    const defaults = defaultOperationCategories[type as 'expense' | 'income']
+    if (defaults.some((item) => item.toLocaleLowerCase('ru') === value.toLocaleLowerCase('ru'))) {
+      res.status(409).json({ error: 'Такая категория уже есть.' })
+      return
+    }
+    const result = await db.query(
+      `INSERT INTO operation_categories(id,name,type) VALUES($1,$2,$3)
+       ON CONFLICT DO NOTHING RETURNING id,name,type`, [randomUUID(), value, type]
+    )
+    if (!result.rows.length) { res.status(409).json({ error: 'Такая категория уже есть.' }); return }
+    res.status(201).json(result.rows[0])
+  })
   app.get('/api/expenses', async (_req, res) =>
     res.json(
       (
@@ -847,6 +868,7 @@ export function createApi(db: DB) {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
       for (const table of [
         'expenses',
+        'operation_categories',
         'operation_templates',
         'budgets',
         'journal_entries',

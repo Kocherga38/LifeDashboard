@@ -72,6 +72,15 @@ export async function migrate(db: DB) {
       `CREATE TABLE IF NOT EXISTS budgets(id UUID PRIMARY KEY,category VARCHAR(100) NOT NULL,amount NUMERIC(12,2) NOT NULL CHECK(amount>0),month DATE NOT NULL CHECK(EXTRACT(DAY FROM month)=1), UNIQUE(month,category))`
     )
     await client.query(
+      `CREATE TABLE IF NOT EXISTS operation_categories(
+        id UUID PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('expense','income')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`
+    )
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS operation_categories_name_idx ON operation_categories(type,lower(name))`)
+    await client.query(
       `CREATE TABLE IF NOT EXISTS operation_templates(
         id UUID PRIMARY KEY,
         title VARCHAR(100) NOT NULL,

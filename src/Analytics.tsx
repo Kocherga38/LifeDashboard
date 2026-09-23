@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { defaultOperationCategories } from '../shared/operationCategories'
 import {
   Bar,
   BarChart,
@@ -38,16 +39,6 @@ const colors = [
   '#89a6d8',
   '#cbbb70',
   '#82c5ae'
-]
-
-const defaultCategories = [
-  'Продукты',
-  'Транспорт',
-  'Жильё',
-  'Развлечения',
-  'Здоровье',
-  'Одежда',
-  'Другое'
 ]
 
 function currentMonth() {
@@ -108,6 +99,7 @@ export default function Analytics() {
   const [month, setMonth] = useState(currentMonth)
   const [operations, setOperations] = useState<Operation[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
+  const [customCategories, setCustomCategories] = useState<{ name: string; type: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [loadedMonth, setLoadedMonth] = useState('')
   const [error, setError] = useState('')
@@ -130,11 +122,14 @@ export default function Analytics() {
 
     async function load() {
       try {
-        const [operationData, budgetData] = await Promise.all([
+        const [operationData, budgetData, categoryData] = await Promise.all([
           api<Operation[]>('/api/expenses', {
             signal: controller.signal
           }),
           api<Budget[]>(`/api/budgets?month=${month}`, {
+            signal: controller.signal
+          }),
+          api<{ name: string; type: string }[]>('/api/operation-categories', {
             signal: controller.signal
           })
         ])
@@ -142,6 +137,7 @@ export default function Analytics() {
         if (!controller.signal.aborted) {
           setOperations(operationData)
           setBudgets(budgetData)
+          setCustomCategories(categoryData)
           setLoadedMonth(month)
         }
       } catch (error) {
@@ -212,7 +208,8 @@ export default function Analytics() {
 
   const categories = Array.from(
     new Set([
-      ...defaultCategories,
+      ...defaultOperationCategories.expense,
+      ...customCategories.filter((item) => item.type === 'expense').map((item) => item.name),
       ...operations.filter((item) => item.type === 'expense').map((item) => item.category),
       ...budgets.map((item) => item.category)
     ])

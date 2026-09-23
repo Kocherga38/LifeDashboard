@@ -72,6 +72,14 @@ h2 { color: var(--ink); letter-spacing: -.025em; }
 .workspace button:not(.secondary):not(.icon-button):not(.link-button):not(.quick-card):not(.habit-today):not(.mini):not(.type-switch button):not(.calendar-view-switch button):not(.task-row button):not(.add-task-button):not(.note-item):not(.folder-open):not(.root-folder):not(.habit-dot):not(.inline-action):not(.template-use):not(.today-chip):not(.hero-refresh):not(.goal-pin):not(.goal-delete):not(.monthly-goal-check):not(.task-color-option):hover:not(:disabled) { background-color: #d3ebaa; box-shadow: 0 6px 16px #09130a44; }
 .workspace .secondary { background: #2a3931; color: #d6e7d3; border: 1px solid #3c5041; }
 .workspace .secondary:hover:not(:disabled) { background: #34483a; }
+.operation-category-field { display: grid; align-content: start; gap: 8px; }
+.operation-category-field > label { display: block; }
+.operation-category-select { display: flex; gap: 6px; min-width: 0; }
+.operation-category-select select { flex: 1; min-width: 0; }
+.operation-category-select button { flex: 0 0 38px; padding: 0; font-size: 20px; }
+.operation-category-create { display: grid; gap: 7px; min-width: 0; }
+.operation-category-create button { justify-self: start; padding: 8px 12px; font-size: 11px; }
+.operation-category-create small { color: #f0a099; font-size: 11px; line-height: 1.35; }
 .workspace .link-button { color: #c1df9c; font-size: 12px; font-weight: 750; }
 .workspace .link-button:hover:not(:disabled) { color: #e2f4c2; }
 label { color: #b9c7bc; }
