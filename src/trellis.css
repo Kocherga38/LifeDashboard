@@ -66,10 +66,10 @@ h2 { color: var(--ink); letter-spacing: -.025em; }
 .forecast-obligation { color: #dfbd83; }
 .forecast-note { color: #87998b; }
 .app-shell button { transition: background-color .2s, color .2s, border-color .2s, transform .2s, box-shadow .2s; }
-.workspace button:not(.icon-button):not(.link-button):not(.quick-card):not(.habit-today):not(.task-add):not(.task-more) { border-radius: 11px; }
+.workspace button:not(.icon-button):not(.link-button):not(.quick-card):not(.habit-today):not(.task-add):not(.task-more):not(.task-color-option) { border-radius: 11px; }
 .workspace button:hover:not(:disabled) { filter: none; }
-.workspace button:not(.secondary):not(.icon-button):not(.link-button):not(.quick-card):not(.habit-today):not(.mini):not(.type-switch button):not(.calendar-view-switch button):not(.task-row button):not(.add-task-button):not(.note-item):not(.folder-open):not(.root-folder):not(.habit-dot):not(.inline-action):not(.template-use):not(.today-chip):not(.hero-refresh):not(.goal-pin):not(.goal-delete):not(.monthly-goal-check) { background-color: var(--accent); color: #17251b; }
-.workspace button:not(.secondary):not(.icon-button):not(.link-button):not(.quick-card):not(.habit-today):not(.mini):not(.type-switch button):not(.calendar-view-switch button):not(.task-row button):not(.add-task-button):not(.note-item):not(.folder-open):not(.root-folder):not(.habit-dot):not(.inline-action):not(.template-use):not(.today-chip):not(.hero-refresh):not(.goal-pin):not(.goal-delete):not(.monthly-goal-check):hover:not(:disabled) { background-color: #d3ebaa; box-shadow: 0 6px 16px #09130a44; }
+.workspace button:not(.secondary):not(.icon-button):not(.link-button):not(.quick-card):not(.habit-today):not(.mini):not(.type-switch button):not(.calendar-view-switch button):not(.task-row button):not(.add-task-button):not(.note-item):not(.folder-open):not(.root-folder):not(.habit-dot):not(.inline-action):not(.template-use):not(.today-chip):not(.hero-refresh):not(.goal-pin):not(.goal-delete):not(.monthly-goal-check):not(.task-color-option) { background-color: var(--accent); color: #17251b; }
+.workspace button:not(.secondary):not(.icon-button):not(.link-button):not(.quick-card):not(.habit-today):not(.mini):not(.type-switch button):not(.calendar-view-switch button):not(.task-row button):not(.add-task-button):not(.note-item):not(.folder-open):not(.root-folder):not(.habit-dot):not(.inline-action):not(.template-use):not(.today-chip):not(.hero-refresh):not(.goal-pin):not(.goal-delete):not(.monthly-goal-check):not(.task-color-option):hover:not(:disabled) { background-color: #d3ebaa; box-shadow: 0 6px 16px #09130a44; }
 .workspace .secondary { background: #2a3931; color: #d6e7d3; border: 1px solid #3c5041; }
 .workspace .secondary:hover:not(:disabled) { background: #34483a; }
 .workspace .link-button { color: #c1df9c; font-size: 12px; font-weight: 750; }
@@ -158,7 +158,7 @@ td { border-top-color: #33443a; }
 .calendar-day-month { color: #849687; }
 .calendar-loading { background: var(--paper); border-color: var(--line); color: #a0b2a1; }
 .today-chip { background: #324d30; color: #cbe9a4; border-color: #5b7c4e; }
-.task-row { background: #26342b; border-color: #3a4c3d; }
+.task-row { background: #26342b; border-color: #3a4c3d; border-left-color: var(--task-color, #3a4c3d); }
 .task-check-label { color: #dce8dc; }
 .task-fake-check { background: #17241d; border-color: #819681; }
 .task-checkbox:checked + .task-fake-check::after { color: #17251b; }
