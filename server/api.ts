@@ -17,7 +17,7 @@ const textValid = (s: unknown, max = 100): s is string =>
 const amountValid = (n: unknown): n is number =>
   typeof n === 'number' && Number.isFinite(n) && n >= 0.01 && n <= 999999999.99
 const sidebarSections = [
-  'today','weekly','operations','analytics','calendar','notes','diary','flashcards',
+  'today','weekly','goals','operations','analytics','calendar','notes','diary','flashcards',
   'habits','shifts','weights','measurements','meals','products','workouts','data'
 ]
 const sidebarSectionSet = new Set(sidebarSections)
@@ -852,6 +852,7 @@ export function createApi(db: DB) {
         'journal_entries',
         'tasks',
         'task_occurrences',
+        'personal_goals',
         'app_settings',
         'import_batches',
         'imported_rows'

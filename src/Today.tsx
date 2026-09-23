@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { api, money, today } from './api'
+import GoalSpotlight from './GoalSpotlight'
+import type { PersonalGoal } from './goalTypes'
 import './overview.css'
 
 type Task = { id: string; title: string; date: string; occurrenceDate?: string; completed: boolean; color: string }
@@ -10,7 +12,7 @@ type Flashcard = { id: string; dueDate: string }
 type Expense = { id: string; amount: number; type: 'expense' | 'income'; date: string }
 type Entry = Record<string, any> & { id: string; date?: string }
 type Diary = { id: string; date: string; title: string; content: string }
-type Nav = 'calendar' | 'habits' | 'flashcards' | 'diary' | 'operations' | 'shifts' | 'weights' | 'workouts'
+type Nav = 'calendar' | 'habits' | 'flashcards' | 'diary' | 'operations' | 'shifts' | 'weights' | 'workouts' | 'goals'
 
 export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }) {
   const date = today()
@@ -23,12 +25,14 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
   const [weights, setWeights] = useState<Entry[]>([])
   const [workouts, setWorkouts] = useState<Entry[]>([])
   const [diary, setDiary] = useState<Diary[]>([])
+  const [goals, setGoals] = useState<PersonalGoal[]>([])
+  const [goalsLoaded, setGoalsLoaded] = useState(false)
   const [error, setError] = useState('')
 
   const load = async () => {
     setError('')
     try {
-      const [t, h, m, c, e, s, w, wo, d] = await Promise.all([
+      const [t, h, m, c, e, s, w, wo, d, g] = await Promise.all([
         api<Task[]>(`/api/tasks?from=${date}&to=${date}`),
         api<Habit[]>('/api/habits'),
         api<Mark[]>(`/api/habit-marks?from=${date}&to=${date}`),
@@ -37,10 +41,12 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
         api<Entry[]>('/api/journal/shifts'),
         api<Entry[]>('/api/journal/weights'),
         api<Entry[]>('/api/journal/workouts'),
-        api<Diary[]>('/api/diary')
+        api<Diary[]>('/api/diary'),
+        api<PersonalGoal[]>('/api/personal-goals')
       ])
-      setTasks(t); setHabits(h); setMarks(m); setCards(c); setExpenses(e); setShifts(s); setWeights(w); setWorkouts(wo); setDiary(d)
+      setTasks(t); setHabits(h); setMarks(m); setCards(c); setExpenses(e); setShifts(s); setWeights(w); setWorkouts(wo); setDiary(d); setGoals(g)
     } catch (e) { setError((e as Error).message) }
+    finally { setGoalsLoaded(true) }
   }
 
   useEffect(() => { load() }, [date])
@@ -93,6 +99,7 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
       </div>
     </section>
     {error && <div className="message error">{error}</div>}
+    {goalsLoaded && <GoalSpotlight goals={goals} reference={date} onNavigate={() => onNavigate('goals')} />}
 
     <div className="overview-section-intro"><div><span className="eyebrow">В ФОКУСЕ</span><h2>Твой день, по частям</h2></div><span>01 / ОБЗОР</span></div>
     <section className="today-grid">

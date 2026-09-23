@@ -9,6 +9,7 @@ import Flashcards from './Flashcards'
 import Habits from './Habits'
 import Today from './Today'
 import WeeklyReview from './WeeklyReview'
+import Goals from './Goals'
 import ErrorBoundary from './ErrorBoundary'
 import { api } from './api'
 import type { Kind } from '../shared/journals'
@@ -16,11 +17,12 @@ import './analytics.css'
 import './journals.css'
 const Analytics = lazy(() => import('./Analytics'))
 const Journal = lazy(() => import('./Journal'))
-type Tab = 'today' | 'weekly' | 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'data' | Kind
+type Tab = 'today' | 'weekly' | 'goals' | 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'data' | Kind
 type TabItem = { key: Tab; label: string; icon: string }
 const tabs: TabItem[] = [
   { key: 'today', label: 'Сегодня', icon: '●' },
   { key: 'weekly', label: 'Обзор недели', icon: '◎' },
+  { key: 'goals', label: 'Цели', icon: '✳' },
   { key: 'operations', label: 'Операции', icon: '↗' },
   { key: 'analytics', label: 'Аналитика', icon: '◷' },
   { key: 'calendar', label: 'Календарь', icon: '□' },
@@ -101,7 +103,7 @@ export default function App() {
           </span>
           <span className="brand-copy"><strong>Trellis</strong><small>Личная система</small></span>
         </div>
-        <div className="sidebar-section-label">ПРОСТРАНСТВО <span>01 / 16</span></div>
+        <div className="sidebar-section-label">ПРОСТРАНСТВО <span>01 / {tabs.length}</span></div>
         <button
           className={`sidebar-order-toggle ${ordering ? 'active' : ''}`}
           onClick={() => { setOrdering((value) => !value); setDraggedTab(null) }}
@@ -155,7 +157,9 @@ export default function App() {
             {tab === 'today' ? (
               <Today onNavigate={(next) => setTab(next)} />
             ) : tab === 'weekly' ? (
-              <WeeklyReview />
+              <WeeklyReview onNavigate={() => setTab('goals')} />
+            ) : tab === 'goals' ? (
+              <Goals />
             ) : tab === 'operations' ? (
               <Operations />
             ) : tab === 'analytics' ? (

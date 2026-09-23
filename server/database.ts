@@ -132,6 +132,19 @@ export async function migrate(db: DB) {
     )
     await client.query(`CREATE INDEX IF NOT EXISTS habit_marks_date_idx ON habit_marks(mark_date)`)
     await client.query(
+      `CREATE TABLE IF NOT EXISTS personal_goals(
+        id UUID PRIMARY KEY,
+        title VARCHAR(160) NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        next_step VARCHAR(300) NOT NULL DEFAULT '',
+        due_date DATE,
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','completed')),
+        pinned BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`
+    )
+    await client.query(
       `CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value JSONB NOT NULL)`
     )
     await client.query(

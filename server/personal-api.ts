@@ -11,6 +11,56 @@ export function createPersonalApi(db: DB) {
   const app = express()
   app.use(express.json({ limit: '2mb' }))
 
+  const goalFields = `id,title,description,next_step AS "nextStep",to_char(due_date,'YYYY-MM-DD') AS "dueDate",status,pinned,created_at AS "createdAt",updated_at AS "updatedAt"`
+  const goalInput = (body: Record<string, unknown> | undefined) => {
+    const { title, description = '', nextStep = '', dueDate = null, status = 'active', pinned = true } = body ?? {}
+    if (
+      !textValid(title, 160) ||
+      typeof description !== 'string' || description.length > 4000 ||
+      typeof nextStep !== 'string' || nextStep.length > 300 ||
+      (dueDate !== null && dueDate !== '' && !validDate(dueDate)) ||
+      !['active', 'paused', 'completed'].includes(String(status)) ||
+      typeof pinned !== 'boolean'
+    ) throw new Error('Проверь название, описание, дату и следующий шаг цели.')
+    return { title: title.trim(), description: description.trim(), nextStep: nextStep.trim(), dueDate: dueDate || null, status, pinned }
+  }
+
+  app.get('/api/personal-goals', async (_req, res) => {
+    res.json((await db.query(
+      `SELECT ${goalFields} FROM personal_goals
+       ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
+                pinned DESC,due_date ASC NULLS LAST,created_at DESC,id`
+    )).rows)
+  })
+  app.post('/api/personal-goals', async (req, res) => {
+    const goal = goalInput(req.body)
+    const row = (await db.query(
+      `INSERT INTO personal_goals(id,title,description,next_step,due_date,status,pinned)
+       VALUES($1,$2,$3,$4,$5::date,$6,$7) RETURNING ${goalFields}`,
+      [randomUUID(), goal.title, goal.description, goal.nextStep, goal.dueDate, goal.status, goal.pinned]
+    )).rows[0]
+    res.status(201).json(row)
+  })
+  app.put('/api/personal-goals/:id', async (req, res) => {
+    const id = String(req.params.id)
+    if (!idValid(id)) throw new Error('Некорректный ID цели.')
+    const goal = goalInput(req.body)
+    const result = await db.query(
+      `UPDATE personal_goals SET title=$1,description=$2,next_step=$3,due_date=$4::date,
+       status=$5,pinned=$6,updated_at=NOW() WHERE id=$7 RETURNING ${goalFields}`,
+      [goal.title, goal.description, goal.nextStep, goal.dueDate, goal.status, goal.pinned, id]
+    )
+    if (!result.rows.length) { res.status(404).json({ error: 'Цель не найдена.' }); return }
+    res.json(result.rows[0])
+  })
+  app.delete('/api/personal-goals/:id', async (req, res) => {
+    const id = String(req.params.id)
+    if (!idValid(id)) throw new Error('Некорректный ID цели.')
+    const result = await db.query(`DELETE FROM personal_goals WHERE id=$1 RETURNING id`, [id])
+    if (!result.rows.length) { res.status(404).json({ error: 'Цель не найдена.' }); return }
+    res.status(204).end()
+  })
+
   app.get('/api/note-folders', async (_req, res) => {
     res.json((await db.query(`SELECT id,name,parent_id AS "parentId" FROM note_folders ORDER BY name,id`)).rows)
   })
@@ -210,7 +260,7 @@ export function createPersonalApi(db: DB) {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
       for (const table of [
         'expenses','budgets','journal_entries','tasks','task_occurrences','note_folders','notes',
-        'diary_entries','flashcards','habits','habit_marks','app_settings','import_batches','imported_rows'
+        'diary_entries','flashcards','habits','habit_marks','personal_goals','app_settings','import_batches','imported_rows'
       ]) result[table] = (await client.query(`SELECT * FROM ${table}`)).rows
       await client.query('COMMIT')
     } catch (e) {

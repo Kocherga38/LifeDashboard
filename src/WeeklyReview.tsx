@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, money } from './api'
+import GoalSpotlight from './GoalSpotlight'
+import type { PersonalGoal } from './goalTypes'
 import './overview.css'
 
 type Task = { id: string; title: string; date: string; completed: boolean; color: string }
@@ -14,7 +16,7 @@ const parse = (s: string) => new Date(s + 'T12:00:00')
 const monday = (d: Date) => { const x = new Date(d); const n = (x.getDay()+6)%7; x.setDate(x.getDate()-n); x.setHours(12,0,0,0); return x }
 const add = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate()+n); return x }
 
-export default function WeeklyReview() {
+export default function WeeklyReview({ onNavigate }: { onNavigate: () => void }) {
   const [anchor, setAnchor] = useState(() => new Date())
   const fromDate = useMemo(() => monday(anchor), [anchor])
   const toDate = useMemo(() => add(fromDate, 6), [fromDate])
@@ -27,6 +29,8 @@ export default function WeeklyReview() {
   const [weights, setWeights] = useState<Entry[]>([])
   const [workouts, setWorkouts] = useState<Entry[]>([])
   const [diary, setDiary] = useState<Diary[]>([])
+  const [goals, setGoals] = useState<PersonalGoal[]>([])
+  const [goalsLoaded, setGoalsLoaded] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -39,9 +43,11 @@ export default function WeeklyReview() {
       api<Entry[]>('/api/journal/shifts'),
       api<Entry[]>('/api/journal/weights'),
       api<Entry[]>('/api/journal/workouts'),
-      api<Diary[]>('/api/diary')
-    ]).then(([a,b,c,d,e,f,g,h]) => { setTasks(a); setHabits(b); setMarks(c); setExpenses(d); setShifts(e); setWeights(f); setWorkouts(g); setDiary(h) })
+      api<Diary[]>('/api/diary'),
+      api<PersonalGoal[]>('/api/personal-goals')
+    ]).then(([a,b,c,d,e,f,g,h,i]) => { setTasks(a); setHabits(b); setMarks(c); setExpenses(d); setShifts(e); setWeights(f); setWorkouts(g); setDiary(h); setGoals(i) })
       .catch((e) => setError(e.message))
+      .finally(() => setGoalsLoaded(true))
   }, [from, to])
 
   const week = <T extends { date?: string }>(xs: T[]) => xs.filter((x) => !!x.date && x.date! >= from && x.date! <= to)
@@ -66,6 +72,7 @@ export default function WeeklyReview() {
       <div className="week-nav"><button className="secondary" onClick={()=>setAnchor(add(anchor,-7))}>←</button><button className="secondary" onClick={()=>setAnchor(new Date())}>Текущая неделя</button><button className="secondary" onClick={()=>setAnchor(add(anchor,7))}>→</button></div>
     </header>
     {error && <div className="message error">{error}</div>}
+    {goalsLoaded && <GoalSpotlight goals={goals} reference={iso(new Date())} onNavigate={onNavigate} weekly />}
 
     <section className="review-metrics">
       <article className="card metric"><span>Задачи</span><strong>{tasks.length ? Math.round(done/tasks.length*100) : 0}%</strong><small>{done} из {tasks.length} выполнено</small></article>
