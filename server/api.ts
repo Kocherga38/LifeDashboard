@@ -19,7 +19,7 @@ const amountValid = (n: unknown): n is number =>
   typeof n === 'number' && Number.isFinite(n) && n >= 0.01 && n <= 999999999.99
 const sidebarSections = [
   'today','weekly','goals','operations','analytics','calendar','notes','diary','flashcards',
-  'habits','shifts','weights','measurements','meals','products','workouts','data'
+  'habits','shifts','weights','sleep','measurements','meals','products','workouts','data'
 ]
 const sidebarSectionSet = new Set(sidebarSections)
 
@@ -872,6 +872,7 @@ export function createApi(db: DB) {
         'operation_templates',
         'budgets',
         'journal_entries',
+        'sleep_entries',
         'tasks',
         'task_occurrences',
         'personal_goals','monthly_goals',

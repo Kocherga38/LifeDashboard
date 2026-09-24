@@ -1,0 +1,30 @@
+.sleep-page { max-width: 1180px; }
+.sleep-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 20px; }
+.sleep-summary .card { display: flex; flex-direction: column; gap: 12px; min-height: 145px; }
+.sleep-summary strong { font-size: clamp(26px, 3vw, 38px); letter-spacing: -.05em; line-height: 1; }
+.sleep-summary small { font-size: 12px; }
+.sleep-editor { margin-bottom: 20px; scroll-margin-top: 24px; }
+.sleep-editor h2, .sleep-history h2 { margin: 0; }
+.sleep-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.sleep-fields label { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.sleep-input-line { display: flex; gap: 8px; min-width: 0; }
+.sleep-fields input { flex: 1; min-width: 0; }
+.sleep-now { flex: 0 0 auto; padding: 7px 10px; font-size: 11px; }
+.sleep-preview { margin: 18px 0; padding: 15px 17px; border: 1px solid #354a3b; border-radius: 12px; background: #1d3027; color: #b5c7b5; }
+.sleep-preview strong { color: #d1edaa; margin-left: 9px; font-size: 18px; }
+.sleep-note { display: flex; flex-direction: column; gap: 9px; }
+.sleep-note textarea { width: 100%; min-height: 94px; padding: 13px 14px; border-radius: 10px; resize: vertical; font: inherit; }
+.sleep-editor .form-actions { margin-top: 17px; }
+.sleep-history .section-heading { margin-bottom: 12px; }
+.sleep-list { display: grid; }
+.sleep-row { display: grid; grid-template-columns: 125px minmax(0, 1fr) 125px auto; gap: 20px; align-items: center; padding: 19px 0; border-top: 1px solid #303944; }
+.sleep-date { display: grid; gap: 5px; }
+.sleep-date small { font-size: 9px; letter-spacing: .12em; }
+.sleep-date strong { font-size: 17px; }
+.sleep-interval { min-width: 0; color: #d6dfd4; }
+.sleep-interval p { margin: 7px 0 0; color: #9facaa; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sleep-duration { color: #d1edaa; white-space: nowrap; }
+.sleep-actions { display: flex; gap: 7px; }
+.sleep-actions button { padding: 8px 10px; font-size: 11px; }
+@media(max-width: 850px) { .sleep-row { grid-template-columns: 100px minmax(0, 1fr) auto; }.sleep-actions { grid-column: 2/-1; }.sleep-duration { text-align: right; } }
+@media(max-width: 620px) { .sleep-page header { align-items: flex-start; }.sleep-summary, .sleep-fields { grid-template-columns: 1fr; }.sleep-row { grid-template-columns: 1fr auto; gap: 8px 12px; }.sleep-date { grid-column: 1; }.sleep-interval { grid-column: 1/-1; grid-row: 2; }.sleep-duration { grid-column: 2; grid-row: 1; }.sleep-actions { grid-column: 1/-1; }.sleep-page .period { flex-wrap: wrap; } }

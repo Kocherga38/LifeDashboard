@@ -105,6 +105,17 @@ export async function migrate(db: DB) {
     )
     await client.query(`CREATE INDEX IF NOT EXISTS journal_kind_idx ON journal_entries(kind)`)
     await client.query(
+      `CREATE TABLE IF NOT EXISTS sleep_entries(
+        id UUID PRIMARY KEY,
+        slept_at TIMESTAMP NOT NULL,
+        woke_at TIMESTAMP NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CHECK(woke_at > slept_at AND woke_at <= slept_at + INTERVAL '36 hours')
+      )`
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS sleep_woke_at_idx ON sleep_entries(woke_at DESC)`)
+    await client.query(
       `CREATE TABLE IF NOT EXISTS tasks(id UUID PRIMARY KEY,title VARCHAR(200) NOT NULL,task_date DATE NOT NULL,completed BOOLEAN NOT NULL DEFAULT FALSE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
     )
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_type TEXT NOT NULL DEFAULT 'none' CHECK(recurrence_type IN ('none','interval','weekdays'))`)
