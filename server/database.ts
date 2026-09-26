@@ -183,12 +183,8 @@ export async function migrate(db: DB) {
     await client.query(
       `CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value JSONB NOT NULL)`
     )
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS import_batches(hash TEXT PRIMARY KEY,filename TEXT NOT NULL,report JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
-    )
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS imported_rows(source TEXT PRIMARY KEY,record_id UUID NOT NULL)`
-    )
+    await client.query('DROP TABLE IF EXISTS imported_rows')
+    await client.query('DROP TABLE IF EXISTS import_batches')
     await client.query('COMMIT')
   } catch (e) {
     await client.query('ROLLBACK')

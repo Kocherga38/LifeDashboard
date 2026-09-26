@@ -7,7 +7,7 @@ import { testDatabase } from './db.js'
 import { migrate } from '../server/database.js'
 import { createApi } from '../server/api.js'
 
-test('Миграции, API, импорт Excel и сохранение после перезапуска', async () => {
+test('Миграции, API, выгрузка и сохранение после перезапуска', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'life-db-'))
   let db = await testDatabase(directory)
   // Начинаем со схемы старой версии и проверяем сохранность старой записи.
@@ -19,8 +19,12 @@ test('Миграции, API, импорт Excel и сохранение посл
     `INSERT INTO expenses VALUES($1,'Старая запись',12.34,'Транспорт','2026-08-15T21:30:00Z')`,
     [oldId]
   )
+  await db.query(`CREATE TABLE import_batches(hash TEXT PRIMARY KEY)`)
+  await db.query(`CREATE TABLE imported_rows(source TEXT PRIMARY KEY)`)
   await migrate(db)
   await migrate(db)
+  assert.equal((await db.query(`SELECT to_regclass('import_batches') AS name`)).rows[0].name, null)
+  assert.equal((await db.query(`SELECT to_regclass('imported_rows') AS name`)).rows[0].name, null)
   const server = createApi(db).listen(0, '127.0.0.1')
   await new Promise<void>((r) => server.once('listening', r))
   const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`
@@ -221,60 +225,26 @@ test('Миграции, API, импорт Excel и сохранение посл
     assert.deepEqual((await request('/api/sidebar-order', 'PUT', { order: reversedSidebar })).body.order, reversedSidebar)
     assert.deepEqual((await request('/api/sidebar-order')).body.order, reversedSidebar)
     assert.equal((await request('/api/sidebar-order', 'PUT', { order: ['today', 'today'] })).status, 400)
-    r = await request('/api/import/preview')
-    assert.equal(r.body.counts.operations, 186)
-    assert.equal(r.body.issues.length, 6)
-    r = await request('/api/import/apply', 'POST')
-    assert.equal(r.status, 200, JSON.stringify(r.body))
-    assert.equal(r.body.operationsAdded, 186)
-    assert.equal((await request('/api/import/apply', 'POST')).body.alreadyImported, true)
-    assert.equal((await request('/api/expenses')).body.length, 189)
-    assert.equal((await request('/api/journal/products')).body.length, 13)
-    assert.equal((await request('/api/journal/shifts')).body.length, 10)
-    assert.equal((await request('/api/journal/meals')).body.length, 15)
-    const data = (await request('/api/expenses')).body.filter((o: any) => o.id !== oldId)
-    const sum = (type: string, month: string) =>
-      data
-        .filter((o: any) => o.type === type && o.date.startsWith(month))
-        .reduce((s: number, o: any) => s + Math.round(o.amount * 100), 0) / 100
-    assert.equal(sum('expense', '2026-08'), 183185.52)
-    assert.equal(sum('income', '2026-08'), 94944.21)
-    const meals = (await request('/api/journal/meals')).body
-    const eggs = meals.find((m: any) => m.name.startsWith('Яйцо'))
-    assert.equal((eggs.kcal * eggs.grams) / 100, 282.6)
-    assert.equal(
-      (await request('/api/budget-template', 'POST', { month: '2026-09' })).body.added,
-      10
-    )
-    assert.equal(
-      (await request('/api/budgets?month=2026-09')).body.find((b: any) => b.id === budgetId).amount,
-      500
-    )
-    assert.equal(
-      (await request('/api/budget-template', 'POST', { month: '2026-09' })).body.added,
-      0
-    )
+    assert.equal((await request('/api/budgets?month=2026-09')).body[0].amount, 500)
     const foreign = await fetch(url + '/api/expenses', {
       method: 'POST',
       headers: { Origin: 'https://example.com', 'Content-Type': 'application/json' },
       body: JSON.stringify(input)
     })
     assert.equal(foreign.status, 403)
-    assert.equal((await request('/api/export')).body.expenses.length, 189)
+    assert.equal((await request('/api/export')).body.expenses.length, 3)
+    assert.equal('import_batches' in (await request('/api/export')).body, false)
     assert.equal((await request('/api/export')).body.operation_templates.length, 1)
     assert.equal((await request('/api/export')).body.tasks.length, 2)
-    // Удалённая импортированная запись не появляется снова при повторном импорте.
-    await request(`/api/expenses/${data[0].id}`, 'DELETE')
-    await request('/api/import/apply', 'POST')
-    assert.equal((await request('/api/expenses')).body.length, 188)
+    assert.equal((await request('/api/import/preview')).status, 404)
   } finally {
     await new Promise<void>((r) => server.close(() => r()))
     await db.end()
   }
   db = await testDatabase(directory)
-  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM expenses')).rows[0].n, 188)
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM expenses')).rows[0].n, 3)
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM operation_templates')).rows[0].n, 1)
-  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM journal_entries')).rows[0].n, 43)
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM journal_entries')).rows[0].n, 0)
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM tasks')).rows[0].n, 2)
   await db.end()
   await rm(directory, { recursive: true, force: true })

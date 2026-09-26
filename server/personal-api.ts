@@ -362,7 +362,7 @@ export function createPersonalApi(db: DB) {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
       for (const table of [
         'expenses','operation_categories','budgets','journal_entries','sleep_entries','tasks','task_occurrences','note_folders','notes',
-        'diary_entries','flashcards','habits','habit_marks','personal_goals','monthly_goals','app_settings','import_batches','imported_rows'
+        'diary_entries','flashcards','habits','habit_marks','personal_goals','monthly_goals','app_settings'
       ]) result[table] = (await client.query(`SELECT * FROM ${table}`)).rows
       await client.query('COMMIT')
     } catch (e) {

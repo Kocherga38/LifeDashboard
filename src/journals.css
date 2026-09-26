@@ -198,15 +198,6 @@ summary {
   margin-top: 24px;
   color: var(--accent);
 }
-.import-counts {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 22px;
-  margin: 24px 0 30px;
-}
-.import-counts strong {
-  font-size: 32px;
-}
 .download-button {
   display: inline-block;
   padding: 13px 18px;
@@ -324,9 +315,6 @@ summary {
   }
   .nutrient-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .import-counts {
-    grid-template-columns: repeat(2, 1fr);
   }
   .journal-form {
     grid-template-columns: 1fr;

@@ -546,7 +546,7 @@ export default function Journal({ kind }: { kind: Kind }) {
           <h2>История · {selected.length}</h2>
           {selected.length === 0 ? (
             <p className="muted">
-              Записей пока нет. Добавь запись или импортируй Excel во вкладке «Данные».
+              Записей пока нет. Добавь первую запись выше.
             </p>
           ) : (
             <div className="table-scroll">
