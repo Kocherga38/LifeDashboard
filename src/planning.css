@@ -1,0 +1,31 @@
+.quick-add { margin: 20px 0; }
+.quick-add .section-heading { margin-bottom: 12px; }
+.quick-add-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.quick-add-tabs button.active { background: var(--accent); color: #17200c; }
+.quick-add form, .calendar-event-form, .planning-panel form { display: grid; gap: 14px; }
+.quick-add label, .calendar-event-form label, .planning-panel label, .speaking-panel label, .reflection-form label { display: grid; gap: 7px; }
+.quick-add form > button { justify-self: start; }
+.planning-fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.planning-panel label:has(input[type="checkbox"]) { display: flex; align-items: center; }
+.calendar-event-form { margin-bottom: 18px; }
+.calendar-event-form h2 { margin: 0; }
+.calendar-event-form textarea, .quick-add textarea, .reflection-form textarea, .speaking-panel textarea { min-height: 80px; resize: vertical; }
+.calendar-events { display: grid; gap: 5px; margin-bottom: 10px; }
+.calendar-event { width: 100%; text-align: left; padding: 8px; border: 1px solid #5b5972; border-radius: 9px; background: #29283b; color: #e5dafd; font-size: 11px; white-space: normal; }
+.calendar-event small { display: block; margin-top: 3px; color: #bfb5d3; }
+.calendar-add-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.planning-panel, .speaking-panel { margin: 20px 0; }
+.planning-panel .section-heading, .speaking-panel .section-heading { margin-bottom: 16px; }
+.planning-panel h2, .speaking-panel h2 { margin: 0; }
+.planning-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+.planning-metrics div { border: 1px solid #303944; border-radius: 10px; padding: 14px; display: grid; gap: 7px; }
+.planning-metrics strong { font-size: 18px; }
+.planning-list { display: grid; gap: 7px; margin-top: 14px; }
+.planning-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #303944; }
+.planning-row p { margin: 4px 0 0; color: #aab3bd; white-space: pre-wrap; }
+.planning-row button { flex: 0 0 auto; }
+.reflection-form { display: grid; gap: 12px; }
+.reflection-form button { justify-self: start; }
+.meal-notes { margin: 20px 0; }
+.meal-notes p { white-space: pre-wrap; }
+@media(max-width:700px) { .planning-fields,.planning-metrics { grid-template-columns: 1fr; } }

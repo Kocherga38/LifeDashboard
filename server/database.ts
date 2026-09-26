@@ -105,6 +105,19 @@ export async function migrate(db: DB) {
     )
     await client.query(`CREATE INDEX IF NOT EXISTS journal_kind_idx ON journal_entries(kind)`)
     await client.query(
+      `CREATE TABLE IF NOT EXISTS sleep_entries(
+        id UUID PRIMARY KEY,
+        slept_at TIMESTAMP NOT NULL,
+        woke_at TIMESTAMP NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        dream TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CHECK(woke_at > slept_at AND woke_at <= slept_at + INTERVAL '36 hours')
+      )`
+    )
+    await client.query(`ALTER TABLE sleep_entries ADD COLUMN IF NOT EXISTS dream TEXT NOT NULL DEFAULT ''`)
+    await client.query(`CREATE INDEX IF NOT EXISTS sleep_woke_at_idx ON sleep_entries(woke_at DESC)`)
+    await client.query(
       `CREATE TABLE IF NOT EXISTS tasks(id UUID PRIMARY KEY,title VARCHAR(200) NOT NULL,task_date DATE NOT NULL,completed BOOLEAN NOT NULL DEFAULT FALSE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
     )
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_type TEXT NOT NULL DEFAULT 'none' CHECK(recurrence_type IN ('none','interval','weekdays'))`)
@@ -170,12 +183,16 @@ export async function migrate(db: DB) {
     await client.query(
       `CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value JSONB NOT NULL)`
     )
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS import_batches(hash TEXT PRIMARY KEY,filename TEXT NOT NULL,report JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
-    )
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS imported_rows(source TEXT PRIMARY KEY,record_id UUID NOT NULL)`
-    )
+    await client.query(`CREATE TABLE IF NOT EXISTS calendar_events(id UUID PRIMARY KEY,event_date DATE NOT NULL,title VARCHAR(200) NOT NULL,event_time VARCHAR(5) NOT NULL DEFAULT '',place VARCHAR(200) NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '',reflection TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+    await client.query(`CREATE INDEX IF NOT EXISTS calendar_events_date_idx ON calendar_events(event_date)`)
+    await client.query(`CREATE TABLE IF NOT EXISTS planned_shifts(id UUID PRIMARY KEY,shift_date DATE NOT NULL,expected_pay NUMERIC(12,2) NOT NULL CHECK(expected_pay>=0),note TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+    await client.query(`ALTER TABLE planned_shifts ADD COLUMN IF NOT EXISTS received BOOLEAN NOT NULL DEFAULT FALSE`)
+    await client.query(`CREATE INDEX IF NOT EXISTS planned_shifts_date_idx ON planned_shifts(shift_date)`)
+    await client.query(`CREATE TABLE IF NOT EXISTS meal_notes(id UUID PRIMARY KEY,entry_date DATE NOT NULL,meal VARCHAR(40) NOT NULL DEFAULT '',description TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+    await client.query(`CREATE TABLE IF NOT EXISTS speaking_sessions(id UUID PRIMARY KEY,session_date DATE NOT NULL,minutes INTEGER NOT NULL CHECK(minutes BETWEEN 1 AND 600),partner VARCHAR(120) NOT NULL DEFAULT '',phrases TEXT NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+    await client.query(`CREATE TABLE IF NOT EXISTS weekly_reflections(week_start DATE PRIMARY KEY,wins TEXT NOT NULL DEFAULT '',friction TEXT NOT NULL DEFAULT '',next_step TEXT NOT NULL DEFAULT '')`)
+    await client.query('DROP TABLE IF EXISTS imported_rows')
+    await client.query('DROP TABLE IF EXISTS import_batches')
     await client.query('COMMIT')
   } catch (e) {
     await client.query('ROLLBACK')

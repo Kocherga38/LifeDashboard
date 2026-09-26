@@ -1,7 +1,6 @@
 import express from 'express'
 import type { ErrorRequestHandler } from 'express'
 import { randomUUID } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
 import type { DB } from './database.js'
 import { isKind, validateEntry, validDate, nutrients } from '../shared/journals.js'
 import { defaultOperationCategories } from '../shared/operationCategories.js'
@@ -19,7 +18,7 @@ const amountValid = (n: unknown): n is number =>
   typeof n === 'number' && Number.isFinite(n) && n >= 0.01 && n <= 999999999.99
 const sidebarSections = [
   'today','weekly','goals','operations','analytics','calendar','notes','diary','flashcards',
-  'habits','shifts','weights','measurements','meals','products','workouts','data'
+  'habits','shifts','weights','sleep','measurements','meals','products','workouts','data'
 ]
 const sidebarSectionSet = new Set(sidebarSections)
 
@@ -141,9 +140,6 @@ function nextRecurringDate(date: string, recurrence: string) {
     .toISOString()
     .slice(0, 10)
 }
-async function bundle() {
-  return JSON.parse(await readFile(new URL('../data/excel-import.json', import.meta.url), 'utf8'))
-}
 export function createApi(db: DB) {
   const app = express()
   app.disable('x-powered-by')
@@ -211,7 +207,7 @@ export function createApi(db: DB) {
     const id = String(req.params.id)
     if (!idValid(id)) throw new Error('Некорректный ID.')
     const b = operationInput(req.body)
-    // Старые клиенты не стирают дополнительные поля импортированных записей.
+    // При частичном обновлении сохраняем поля, которых не было в старом клиенте.
     const r = await db.query(
       `UPDATE expenses SET title=$1,amount=$2,category=$3,type=$4,operation_date=$5::date,subcategory=COALESCE($7,subcategory),counterparty=COALESCE($8,counterparty),note=COALESCE($9,note) WHERE id=$6 RETURNING ${operationFields}`,
       [
@@ -726,141 +722,6 @@ export function createApi(db: DB) {
     )
     res.json(values)
   })
-  app.get('/api/import/preview', async (_req, res) => {
-    const data = await bundle()
-    const previous = (
-      await db.query('SELECT report FROM import_batches WHERE hash=$1', [data.sha256])
-    ).rows[0]
-    res.json({
-      filename: data.filename,
-      hash: data.sha256,
-      counts: {
-        operations: data.operations.length,
-        ...Object.fromEntries(
-          Object.entries(data.records).map(([key, rows]) => [key, (rows as unknown[]).length])
-        )
-      },
-      issues: data.issues,
-      summary: data.summary,
-      budgetTemplate: data.budgetTemplate,
-      imported: !!previous,
-      report: previous?.report
-    })
-  })
-  app.post('/api/import/apply', async (_req, res) => {
-    const data = await bundle()
-    const c = await db.connect()
-    let report: Record<string, unknown> = {}
-    try {
-      await c.query('BEGIN')
-      // Уникальный hash и транзакция защищают от повторного/одновременного импорта.
-      const claim = await c.query(
-        `INSERT INTO import_batches(hash,filename,report) VALUES($1,$2,'{}') ON CONFLICT DO NOTHING RETURNING hash`,
-        [data.sha256, data.filename]
-      )
-      if (!claim.rows.length) {
-        await c.query('ROLLBACK')
-        res.json({ alreadyImported: true })
-        return
-      }
-      let added = 0,
-        matched = 0
-      const counts: Record<string, number> = {}
-      for (const raw of data.operations) {
-        const b = operationInput(raw)
-        const source = `excel-v1:${raw.source}`
-        if ((await c.query('SELECT 1 FROM imported_rows WHERE source=$1', [source])).rows.length)
-          continue
-        const existing = await c.query(
-          `SELECT id FROM expenses WHERE title=$1 AND amount=$2 AND category=$3 AND type=$4 AND operation_date=$5::date AND subcategory=$6 AND counterparty=$7 AND note=$8 AND id NOT IN(SELECT record_id FROM imported_rows) LIMIT 1`,
-          [b.title, b.amount, b.category, b.type, b.date, b.subcategory, b.counterparty, b.note]
-        )
-        const id = existing.rows[0]?.id ?? randomUUID()
-        if (existing.rows.length) matched++
-        else {
-          await c.query(
-            `INSERT INTO expenses(id,title,amount,category,type,operation_date,subcategory,counterparty,note) VALUES($1,$2,$3,$4,$5,$6::date,$7,$8,$9)`,
-            [
-              id,
-              b.title,
-              b.amount.toFixed(2),
-              b.category,
-              b.type,
-              b.date,
-              b.subcategory,
-              b.counterparty,
-              b.note
-            ]
-          )
-          added++
-        }
-        await c.query('INSERT INTO imported_rows(source,record_id) VALUES($1,$2)', [source, id])
-      }
-      for (const [kind, rows] of Object.entries(data.records)) {
-        if (!isKind(kind)) continue
-        counts[kind] = 0
-        for (const raw of rows as Record<string, unknown>[]) {
-          const source = `excel-v1:${raw.source}`
-          if ((await c.query('SELECT 1 FROM imported_rows WHERE source=$1', [source])).rows.length)
-            continue
-          const entry = validateEntry(kind, raw)
-          const id = randomUUID()
-          await c.query('INSERT INTO journal_entries(id,kind,data) VALUES($1,$2,$3::jsonb)', [
-            id,
-            kind,
-            JSON.stringify(entry)
-          ])
-          await c.query('INSERT INTO imported_rows(source,record_id) VALUES($1,$2)', [source, id])
-          counts[kind]++
-        }
-      }
-      await c.query(
-        `INSERT INTO app_settings(key,value) VALUES('nutrition-goals',$1::jsonb) ON CONFLICT DO NOTHING`,
-        [JSON.stringify(data.goals)]
-      )
-      report = {
-        operationsAdded: added,
-        operationsMatched: matched,
-        records: counts,
-        issues: data.issues
-      }
-      await c.query('UPDATE import_batches SET report=$1::jsonb WHERE hash=$2', [
-        JSON.stringify(report),
-        data.sha256
-      ])
-      await c.query('COMMIT')
-    } catch (e) {
-      await c.query('ROLLBACK')
-      throw e
-    } finally {
-      c.release()
-    }
-    res.json(report)
-  })
-  app.post('/api/budget-template', async (req, res) => {
-    const month = req.body?.month
-    if (!monthValid(month)) throw new Error('Выбери месяц.')
-    const data = await bundle()
-    const c = await db.connect()
-    let added = 0
-    try {
-      await c.query('BEGIN')
-      for (const b of data.budgetTemplate) {
-        const r = await c.query(
-          `INSERT INTO budgets(id,category,amount,month) VALUES($1,$2,$3,$4::date) ON CONFLICT(month,category) DO NOTHING RETURNING id`,
-          [randomUUID(), b.category, b.amount, `${month}-01`]
-        )
-        added += r.rows.length
-      }
-      await c.query('COMMIT')
-    } catch (e) {
-      await c.query('ROLLBACK')
-      throw e
-    } finally {
-      c.release()
-    }
-    res.json({ added })
-  })
   app.get('/api/export', async (_req, res) => {
     const client = await db.connect()
     const result: Record<string, unknown> = { version: 2, exportedAt: new Date().toISOString() }
@@ -872,12 +733,12 @@ export function createApi(db: DB) {
         'operation_templates',
         'budgets',
         'journal_entries',
+        'sleep_entries',
+        'calendar_events','planned_shifts','meal_notes','speaking_sessions','weekly_reflections',
         'tasks',
         'task_occurrences',
         'personal_goals','monthly_goals',
         'app_settings',
-        'import_batches',
-        'imported_rows'
       ])
         result[table] = (await client.query(`SELECT * FROM ${table}`)).rows
       await client.query('COMMIT')

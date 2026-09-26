@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { api, money, today } from './api'
 import GoalSpotlight from './GoalSpotlight'
+import QuickAdd from './QuickAdd'
 import type { MonthlyGoal, PersonalGoal } from './goalTypes'
 import './overview.css'
 
@@ -100,6 +101,7 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
         <div className="hero-bottom"><span>{String(tasks.length).padStart(2, '0')} <small>задач</small></span><span>{String(marked.size).padStart(2, '0')} <small>действий отмечено</small></span><span>{String(todayDiary.length).padStart(2, '0')} <small>записей в дневнике</small></span></div>
       </div>
     </section>
+    <QuickAdd onSaved={() => void load()} />
     {error && <div className="message error">{error}</div>}
     {goalsLoaded && <GoalSpotlight goals={goals} monthlyGoals={monthlyGoals} month={date.slice(0, 7)} reference={date} onNavigate={() => onNavigate('goals')} />}
 

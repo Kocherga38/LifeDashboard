@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api } from './api'
 import './personal.css'
+import SpeakingPractice from './SpeakingPractice'
 
 type Card = { id: string; front: string; back: string; deck: string; dueDate: string; intervalDays: number; repetitions: number; lapses: number }
 
@@ -54,6 +55,7 @@ export default function Flashcards() {
       <span className="badge">{review.deck}</span><h2>{review.front}</h2>
       {shown ? <><div className="review-answer">{review.back}</div><div className="rating-row"><button onClick={() => rate('again')}>Снова</button><button onClick={() => rate('hard')} className="secondary">Трудно</button><button onClick={() => rate('good')} className="secondary">Хорошо</button><button onClick={() => rate('easy')} className="secondary">Легко</button></div></> : <button onClick={() => setShown(true)}>Показать ответ</button>}
     </section>}
+    <SpeakingPractice />
     <div className="columns">
       <form className="card" onSubmit={submit}><h2>{editing ? 'Редактировать карточку' : 'Новая карточка'}</h2><label>Колода<input value={deck} onChange={(e) => setDeck(e.target.value)} maxLength={100} /></label><label>Лицевая сторона<textarea className="small-area" value={front} onChange={(e) => setFront(e.target.value)} required /></label><label>Оборотная сторона<textarea className="small-area" value={back} onChange={(e) => setBack(e.target.value)} required /></label><div className="form-actions"><button>{editing ? 'Сохранить' : 'Добавить'}</button>{editing && <button className="secondary" type="button" onClick={reset}>Отмена</button>}</div></form>
       <section className="card"><div className="section-heading"><h2>Все карточки</h2><span className="badge">{cards.length}</span></div><div className="flash-list">{cards.map((c) => <div className="flash-row" key={c.id}><div><strong>{c.front}</strong><small>{c.deck} · следующее: {c.dueDate} · интервал {c.intervalDays} дн.</small></div><div><button className="icon-button" onClick={() => edit(c)}>✎</button><button className="icon-button delete" onClick={() => remove(c)}>×</button></div></div>)}</div></section>

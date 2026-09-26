@@ -13,6 +13,7 @@ import {
 import { journals, nutrients, nutrientLabels, validateEntry } from '../shared/journals'
 import type { Kind, Entry, Field } from '../shared/journals'
 import { api, today, money, num } from './api'
+import MealNotes from './MealNotes'
 
 const value = (entry: Entry, key: string) => Number(entry[key] ?? 0)
 const sets = (entry: Entry) => (Array.isArray(entry.sets) ? (entry.sets as number[]) : [])
@@ -541,12 +542,13 @@ export default function Journal({ kind }: { kind: Kind }) {
           )}
         </section>
       )}
+      {ready && kind === 'meals' && <MealNotes month={month} />}
       {ready && (
         <section className="card journal-table">
           <h2>История · {selected.length}</h2>
           {selected.length === 0 ? (
             <p className="muted">
-              Записей пока нет. Добавь запись или импортируй Excel во вкладке «Данные».
+              Записей пока нет. Добавь первую запись выше.
             </p>
           ) : (
             <div className="table-scroll">

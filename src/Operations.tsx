@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { buildFinancialForecast } from './financeForecast'
+import MoneyPlanner from './MoneyPlanner'
 import { defaultOperationCategories as defaultCategories } from '../shared/operationCategories'
 
 type OperationType = 'expense' | 'income'
@@ -639,6 +640,8 @@ export default function Operations() {
           {search ? '; поиск на него не влияет' : ''}.
         </p>
       </section>
+
+      <MoneyPlanner />
 
       <section className={`card form-card ${editingId ? 'editing' : ''}`}>
         <div className="section-heading">

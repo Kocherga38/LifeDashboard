@@ -7,6 +7,7 @@ import Notes from './Notes'
 import Diary from './Diary'
 import Flashcards from './Flashcards'
 import Habits from './Habits'
+import Sleep from './Sleep'
 import Today from './Today'
 import WeeklyReview from './WeeklyReview'
 import Goals from './Goals'
@@ -17,7 +18,7 @@ import './analytics.css'
 import './journals.css'
 const Analytics = lazy(() => import('./Analytics'))
 const Journal = lazy(() => import('./Journal'))
-type Tab = 'today' | 'weekly' | 'goals' | 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'data' | Kind
+type Tab = 'today' | 'weekly' | 'goals' | 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'sleep' | 'data' | Kind
 type TabItem = { key: Tab; label: string; icon: string }
 const tabs: TabItem[] = [
   { key: 'today', label: 'Сегодня', icon: '●' },
@@ -32,6 +33,7 @@ const tabs: TabItem[] = [
   { key: 'habits', label: 'Трекер', icon: '✓' },
   { key: 'shifts', label: 'Смены', icon: '▦' },
   { key: 'weights', label: 'Вес', icon: '↝' },
+  { key: 'sleep', label: 'Сон', icon: '☾' },
   { key: 'measurements', label: 'Замеры', icon: '↔' },
   { key: 'meals', label: 'Питание', icon: '◒' },
   { key: 'products', label: 'Продукты', icon: '▤' },
@@ -175,6 +177,8 @@ export default function App() {
               <Flashcards />
             ) : tab === 'habits' ? (
               <Habits />
+            ) : tab === 'sleep' ? (
+              <Sleep />
             ) : tab === 'data' ? (
               <DataPage />
             ) : (

@@ -25,6 +25,7 @@ test('Занятый порт обходится, повторный запус�
     assert.equal(new URL(running.url).port, String(port + 1))
     const health = await fetch(running.url + '/api/health').then((r) => r.json())
     assert.equal(health.app, 'trellis')
+    assert.deepEqual(await fetch(running.url + '/api/events').then((r) => r.json()), [])
     assert.equal(await startServer(db, { dev: false, port }), null)
     assert.equal(closed, 1)
   } finally {
