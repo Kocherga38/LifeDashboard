@@ -4,6 +4,7 @@
 
 .calendar-header {
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .calendar-view-switch {

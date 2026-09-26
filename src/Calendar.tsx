@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api, today } from './api'
 import './calendar.css'
+import './planning.css'
 
 type Recurrence =
   | { type: 'interval'; intervalDays: number }
@@ -18,6 +19,9 @@ type Task = {
   recurrence: Recurrence
   color: TaskColor
 }
+
+type CalendarEvent = { id: string; date: string; title: string; time: string; place: string; note: string; reflection: string }
+const emptyEvent = (date = today()) => ({ date, title: '', time: '', place: '', note: '', reflection: '' })
 
 type View = 'week' | 'month'
 type RepeatMode = 'none' | 'interval' | 'weekdays'
@@ -184,6 +188,11 @@ export default function Calendar() {
   const [view, setView] = useState<View>('week')
   const [anchor, setAnchor] = useState(() => parseDate(today()))
   const [tasks, setTasks] = useState<Task[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [eventForm, setEventForm] = useState(emptyEvent)
+  const [eventEditor, setEventEditor] = useState(false)
+  const eventEditorRef = useRef<HTMLFormElement>(null)
+  const [eventId, setEventId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [addingDate, setAddingDate] = useState<string | null>(null)
@@ -212,6 +221,30 @@ export default function Calendar() {
     [view, anchor]
   )
 
+  async function loadEvents() {
+    setEvents(await api<CalendarEvent[]>(`/api/events?from=${iso(from)}&to=${iso(to)}`))
+  }
+
+  async function saveEvent(event: FormEvent) {
+    event.preventDefault()
+    setSaving(true); setError('')
+    try {
+      await api(eventId ? `/api/events/${eventId}` : '/api/events', { method: eventId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(eventForm) })
+      setEventEditor(false); setEventId(null); setEventForm(emptyEvent())
+      await loadEvents()
+    } catch (e) { setError((e as Error).message) }
+    finally { setSaving(false) }
+  }
+  async function removeEvent() {
+    if (!eventId || !window.confirm('Удалить это событие?')) return
+    try { await api(`/api/events/${eventId}`, { method: 'DELETE' }); setEventEditor(false); setEventId(null); await loadEvents() }
+    catch (e) { setError((e as Error).message) }
+  }
+  function openEvent(date: string, entry?: CalendarEvent) {
+    setEventId(entry?.id ?? null); setEventForm(entry ? { date: entry.date, title: entry.title, time: entry.time, place: entry.place, note: entry.note, reflection: entry.reflection } : emptyEvent(date)); setEventEditor(true)
+    requestAnimationFrame(() => eventEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
   async function loadTasks(showLoader = false) {
     if (showLoader) setLoading(true)
     setError('')
@@ -229,8 +262,8 @@ export default function Calendar() {
     let alive = true
     setLoading(true)
     setError('')
-    api<Task[]>(`/api/tasks?from=${iso(from)}&to=${iso(to)}`)
-      .then((rows) => alive && setTasks(rows))
+    Promise.all([api<Task[]>(`/api/tasks?from=${iso(from)}&to=${iso(to)}`), api<CalendarEvent[]>(`/api/events?from=${iso(from)}&to=${iso(to)}`)])
+      .then(([rows, entries]) => { if (alive) { setTasks(rows); setEvents(entries) } })
       .catch((e) => alive && setError(e.message))
       .finally(() => alive && setLoading(false))
     return () => {
@@ -425,6 +458,7 @@ export default function Calendar() {
           <h1>Календарь</h1>
           <p className="muted">Задачи на неделю и месяц. Разовые и повторяющиеся.</p>
         </div>
+        <button className="secondary" onClick={() => openEvent(today())}>+ Событие</button>
         <div className="calendar-view-switch" aria-label="Вид календаря">
           <button className={view === 'week' ? 'active' : ''} onClick={() => setView('week')}>Неделя</button>
           <button className={view === 'month' ? 'active' : ''} onClick={() => setView('month')}>Месяц</button>
@@ -432,6 +466,13 @@ export default function Calendar() {
       </header>
 
       {error && <div className="message error">{error}</div>}
+      {eventEditor && <form className="card calendar-event-form" ref={eventEditorRef} onSubmit={(e) => void saveEvent(e)}>
+        <h2>{eventId ? 'Изменить событие' : 'Новое событие'}</h2>
+        <div className="planning-fields"><label>Название<input required maxLength={200} value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} /></label><label>Дата<input required type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} /></label><label>Время<input type="time" value={eventForm.time} onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })} /></label><label>Место<input maxLength={200} value={eventForm.place} onChange={(e) => setEventForm({ ...eventForm, place: e.target.value })} /></label></div>
+        <label>Подготовка или заметка<textarea maxLength={5000} value={eventForm.note} onChange={(e) => setEventForm({ ...eventForm, note: e.target.value })} /></label>
+        <label>Что осталось после события<textarea maxLength={5000} value={eventForm.reflection} onChange={(e) => setEventForm({ ...eventForm, reflection: e.target.value })} /></label>
+        <div className="form-actions"><button disabled={saving}>Сохранить</button><button type="button" className="secondary" onClick={() => setEventEditor(false)}>Отмена</button>{eventId && <button type="button" className="secondary" onClick={() => void removeEvent()}>Удалить</button>}</div>
+      </form>}
 
       <section className="calendar-toolbar" aria-label="Навигация календаря">
         <div className="calendar-nav">
@@ -482,6 +523,7 @@ export default function Calendar() {
                   {isToday && <span className="today-chip">сегодня</span>}
                 </div>
 
+                <div className="calendar-events">{events.filter((entry) => entry.date === date).sort((a, b) => a.time.localeCompare(b.time)).map((entry) => <button key={entry.id} className="calendar-event" onClick={() => openEvent(date, entry)} title={[entry.place, entry.note, entry.reflection].filter(Boolean).join(" · ")}><strong>{entry.time || "◷"} {entry.title}</strong>{entry.place && <small>{entry.place}</small>}{entry.reflection && <small>Есть заметка после ↗</small>}</button>)}</div>
                 <div className="task-list">
                   {items.map((task) => {
                     const isEditing = editing ? taskIdentity(editing) === taskIdentity(task) : false
@@ -569,7 +611,7 @@ export default function Calendar() {
                     </div>
                   </form>
                 ) : (
-                  <button className="add-task-button" onClick={() => beginAdd(date)}><span>＋</span> Задача</button>
+                  <div className="calendar-add-actions"><button className="add-task-button" onClick={() => beginAdd(date)}><span>＋</span> Задача</button><button className="add-task-button" onClick={() => openEvent(date)}>＋ Событие</button></div>
                 )}
               </article>
             )

@@ -734,6 +734,7 @@ export function createApi(db: DB) {
         'budgets',
         'journal_entries',
         'sleep_entries',
+        'calendar_events','planned_shifts','meal_notes','speaking_sessions','weekly_reflections',
         'tasks',
         'task_occurrences',
         'personal_goals','monthly_goals',

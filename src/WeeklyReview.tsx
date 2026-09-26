@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import { api, money } from './api'
 import GoalSpotlight from './GoalSpotlight'
+import './planning.css'
 import type { MonthlyGoal, PersonalGoal } from './goalTypes'
 import './overview.css'
 
@@ -33,6 +35,9 @@ export default function WeeklyReview({ onNavigate }: { onNavigate: (month: strin
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([])
   const [goalsLoaded, setGoalsLoaded] = useState(false)
   const [error, setError] = useState('')
+  const [reflection, setReflection] = useState({ wins: '', friction: '', nextStep: '' })
+  const [reflectionSaved, setReflectionSaved] = useState(false)
+  const [reflectionBusy, setReflectionBusy] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -54,6 +59,26 @@ export default function WeeklyReview({ onNavigate }: { onNavigate: (month: strin
       .finally(() => { if (alive) setGoalsLoaded(true) })
     return () => { alive = false }
   }, [from, to])
+
+  useEffect(() => {
+    let alive = true
+    setReflectionSaved(false)
+    setReflection({ wins: '', friction: '', nextStep: '' })
+    api<{ wins: string; friction: string; nextStep: string }[]>(`/api/weekly-reflections?from=${from}`)
+      .then((rows) => { if (alive) setReflection(rows[0] ?? { wins: '', friction: '', nextStep: '' }) })
+      .catch((e) => { if (alive) setError(e.message) })
+    return () => { alive = false }
+  }, [from])
+
+  async function saveReflection(event: FormEvent) {
+    event.preventDefault()
+    setReflectionBusy(true); setError('')
+    try {
+      await api(`/api/weekly-reflections/${from}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reflection) })
+      setReflectionSaved(true)
+    } catch (e) { setError((e as Error).message) }
+    finally { setReflectionBusy(false) }
+  }
 
   const week = <T extends { date?: string }>(xs: T[]) => xs.filter((x) => !!x.date && x.date! >= from && x.date! <= to)
   const ops = expenses.filter((x) => x.date >= from && x.date <= to)
@@ -86,6 +111,16 @@ export default function WeeklyReview({ onNavigate }: { onNavigate: (month: strin
       <article className="card metric"><span>Тренировки</span><strong>{workoutDays}</strong><small>дней · {weekWorkouts.length} упражнений</small></article>
       <article className="card metric"><span>Вес</span><strong>{weightEnd !== null ? weightEnd.toLocaleString('ru-RU')+' кг' : '—'}</strong><small>{weightDelta === null ? 'нет пары замеров' : (weightDelta>0?'+':'')+weightDelta.toFixed(1)+' кг за неделю'}</small></article>
       <article className="card metric"><span>Дневник</span><strong>{weekDiary.length}</strong><small>записей за неделю</small></article>
+    </section>
+
+    <section className="card weekly-section">
+      <div className="section-heading"><div><span className="kicker">ВЫВОДЫ</span><h2>Что беру из этой недели</h2></div>{reflectionSaved && <span className="badge">Сохранено</span>}</div>
+      <form className="reflection-form" onSubmit={(e) => void saveReflection(e)}>
+        <label>Что получилось<textarea maxLength={5000} value={reflection.wins} onChange={(e) => { setReflection({ ...reflection, wins: e.target.value }); setReflectionSaved(false) }} placeholder="Даже если в цифрах этого не видно" /></label>
+        <label>Что мешало<textarea maxLength={5000} value={reflection.friction} onChange={(e) => { setReflection({ ...reflection, friction: e.target.value }); setReflectionSaved(false) }} placeholder="Без самобичевания: что реально произошло?" /></label>
+        <label>Что меняю на следующей неделе<textarea maxLength={5000} value={reflection.nextStep} onChange={(e) => { setReflection({ ...reflection, nextStep: e.target.value }); setReflectionSaved(false) }} placeholder="Один конкретный шаг" /></label>
+        <button disabled={reflectionBusy}>{reflectionBusy ? 'Сохраняю…' : 'Сохранить итог недели'}</button>
+      </form>
     </section>
 
     <section className="card weekly-section">
