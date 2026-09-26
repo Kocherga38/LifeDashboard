@@ -8,10 +8,11 @@ type SleepEntry = {
   sleptAt: string
   wokeAt: string
   note: string
+  dream: string
   durationMinutes: number
 }
-type SleepForm = Pick<SleepEntry, 'sleptAt' | 'wokeAt' | 'note'>
-const empty: SleepForm = { sleptAt: '', wokeAt: '', note: '' }
+type SleepForm = Pick<SleepEntry, 'sleptAt' | 'wokeAt' | 'note' | 'dream'>
+const empty: SleepForm = { sleptAt: '', wokeAt: '', note: '', dream: '' }
 const minutes = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(value)) return null
   const date = value.slice(0, 10)
@@ -61,7 +62,7 @@ export default function Sleep() {
     setEditId(null)
   }
   function edit(entry: SleepEntry) {
-    setForm({ sleptAt: entry.sleptAt, wokeAt: entry.wokeAt, note: entry.note })
+    setForm({ sleptAt: entry.sleptAt, wokeAt: entry.wokeAt, note: entry.note, dream: entry.dream })
     setEditId(entry.id)
     setError('')
     setNotice('')
@@ -114,7 +115,7 @@ export default function Sleep() {
       <div>
         <p className="eyebrow">TRELLIS / ВОССТАНОВЛЕНИЕ</p>
         <h1>Сон</h1>
-        <p className="muted">Когда лёг, когда проснулся и как прошла ночь.</p>
+        <p className="muted">Когда лёг, когда проснулся и что запомнилось из снов.</p>
       </div>
       <div className="period">
         <label>Месяц <input type="month" value={month} min="1900-01" max="2100-12" onChange={(e) => setMonth(e.target.value)} /></label>
@@ -136,6 +137,7 @@ export default function Sleep() {
         </div>
         <div className="sleep-preview" aria-live="polite">{preview === null ? 'Выбери даты и время — длительность посчитается сама.' : <>Длительность <strong>{duration(preview)}</strong></>}</div>
         <label className="sleep-note">Комментарий <textarea maxLength={5000} rows={3} placeholder="Как спалось? Что повлияло на сон?" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
+        <label className="sleep-note sleep-dream">Что приснилось <span className="muted">Необязательно — если запомнил сон, запиши его здесь.</span><textarea maxLength={10000} rows={5} placeholder="Что происходило во сне? Какие детали и ощущения остались?" value={form.dream} onChange={(e) => setForm({ ...form, dream: e.target.value })} /></label>
         <div className="form-actions"><button disabled={busy}>{busy ? 'Сохраняем…' : editId ? 'Сохранить изменения' : 'Сохранить сон'}</button>{editId && <button type="button" className="secondary" disabled={busy} onClick={reset}>Отмена</button>}</div>
       </form>
     </section>
@@ -144,7 +146,7 @@ export default function Sleep() {
       {loading ? <p className="muted">Загружаем записи…</p> : selected.length === 0 ? <p className="muted">{month ? 'В этом месяце записей нет.' : 'Записей пока нет. Внеси первый сон выше.'}</p> :
         <div className="sleep-list">{selected.map((entry) => <article className="sleep-row" key={entry.id}>
           <div className="sleep-date"><small>ПРОБУЖДЕНИЕ</small><strong>{dateLabel(entry.wokeAt)}</strong></div>
-          <div className="sleep-interval"><span>{dateLabel(entry.sleptAt)} · {timeLabel(entry.sleptAt)} → {dateLabel(entry.wokeAt)} · {timeLabel(entry.wokeAt)}</span>{entry.note && <p>{entry.note}</p>}</div>
+          <div className="sleep-interval"><span>{dateLabel(entry.sleptAt)} · {timeLabel(entry.sleptAt)} → {dateLabel(entry.wokeAt)} · {timeLabel(entry.wokeAt)}</span>{entry.note && <p>{entry.note}</p>}{entry.dream && <div className="sleep-dream-entry"><strong>Приснилось</strong><p>{entry.dream}</p></div>}</div>
           <strong className="sleep-duration">{duration(entry.durationMinutes)}</strong>
           <div className="sleep-actions"><button className="secondary" disabled={busy} onClick={() => edit(entry)}>Изменить</button><button className="secondary" disabled={busy} onClick={() => void remove(entry)}>Удалить</button></div>
         </article>)}</div>}

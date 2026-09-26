@@ -14,6 +14,9 @@
 .sleep-preview strong { color: #d1edaa; margin-left: 9px; font-size: 18px; }
 .sleep-note { display: flex; flex-direction: column; gap: 9px; }
 .sleep-note textarea { width: 100%; min-height: 94px; padding: 13px 14px; border-radius: 10px; resize: vertical; font: inherit; }
+.sleep-dream { margin-top: 18px; }
+.sleep-dream .muted { font-size: 12px; }
+.sleep-dream textarea { min-height: 128px; }
 .sleep-editor .form-actions { margin-top: 17px; }
 .sleep-history .section-heading { margin-bottom: 12px; }
 .sleep-list { display: grid; }
@@ -23,6 +26,9 @@
 .sleep-date strong { font-size: 17px; }
 .sleep-interval { min-width: 0; color: #d6dfd4; }
 .sleep-interval p { margin: 7px 0 0; color: #9facaa; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sleep-dream-entry { margin-top: 12px; padding: 12px 14px; border: 1px solid #354a3b; border-radius: 10px; background: #1d3027; }
+.sleep-dream-entry strong { color: #d1edaa; font-size: 12px; }
+.sleep-dream-entry p { color: #d6dfd4; line-height: 1.5; }
 .sleep-duration { color: #d1edaa; white-space: nowrap; }
 .sleep-actions { display: flex; gap: 7px; }
 .sleep-actions button { padding: 8px 10px; font-size: 11px; }

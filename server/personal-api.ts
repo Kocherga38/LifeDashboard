@@ -13,20 +13,21 @@ export function createPersonalApi(db: DB) {
   app.use(express.json({ limit: '2mb' }))
 
   const sleepFields = `id,to_char(slept_at,'YYYY-MM-DD"T"HH24:MI') AS "sleptAt",
-    to_char(woke_at,'YYYY-MM-DD"T"HH24:MI') AS "wokeAt",note,
+    to_char(woke_at,'YYYY-MM-DD"T"HH24:MI') AS "wokeAt",note,dream,
     (EXTRACT(EPOCH FROM (woke_at - slept_at)) / 60)::integer AS "durationMinutes"`
   const sleepInput = (body: Record<string, unknown> | undefined) => {
-    const { sleptAt, wokeAt, note = '' } = body ?? {}
+    const { sleptAt, wokeAt, note = '', dream = '' } = body ?? {}
     const minutes = (value: unknown) => {
       if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(value) || !validDate(value.slice(0, 10))) return null
       const [year, month, day, hour, minute] = value.match(/\d+/g)!.map(Number)
       return Date.UTC(year, month - 1, day, hour, minute) / 60000
     }
     const start = minutes(sleptAt), end = minutes(wokeAt)
-    if (start === null || end === null || end <= start || end - start > 36 * 60 ||
-        typeof note !== 'string' || note.length > 5000)
+    if (start === null || end === null || end <= start || end - start > 36 * 60)
       throw new Error('Проверь время сна и пробуждения: пробуждение должно быть позже, длительность — не больше 36 часов.')
-    return { sleptAt: sleptAt as string, wokeAt: wokeAt as string, note: note.trim() }
+    if (typeof note !== 'string' || note.length > 5000 || typeof dream !== 'string' || dream.length > 10000)
+      throw new Error('Комментарий или описание сновидения слишком длинное.')
+    return { sleptAt: sleptAt as string, wokeAt: wokeAt as string, note: note.trim(), dream: dream.trim() }
   }
 
   app.get('/api/sleep', async (_req, res) => {
@@ -35,8 +36,8 @@ export function createPersonalApi(db: DB) {
   app.post('/api/sleep', async (req, res) => {
     const entry = sleepInput(req.body)
     const row = (await db.query(
-      `INSERT INTO sleep_entries(id,slept_at,woke_at,note) VALUES($1,$2::timestamp,$3::timestamp,$4) RETURNING ${sleepFields}`,
-      [randomUUID(), entry.sleptAt, entry.wokeAt, entry.note]
+      `INSERT INTO sleep_entries(id,slept_at,woke_at,note,dream) VALUES($1,$2::timestamp,$3::timestamp,$4,$5) RETURNING ${sleepFields}`,
+      [randomUUID(), entry.sleptAt, entry.wokeAt, entry.note, entry.dream]
     )).rows[0]
     res.status(201).json(row)
   })
@@ -45,8 +46,8 @@ export function createPersonalApi(db: DB) {
     if (!idValid(id)) throw new Error('Некорректный ID записи сна.')
     const entry = sleepInput(req.body)
     const result = await db.query(
-      `UPDATE sleep_entries SET slept_at=$2::timestamp,woke_at=$3::timestamp,note=$4 WHERE id=$1 RETURNING ${sleepFields}`,
-      [id, entry.sleptAt, entry.wokeAt, entry.note]
+      `UPDATE sleep_entries SET slept_at=$2::timestamp,woke_at=$3::timestamp,note=$4,dream=$5 WHERE id=$1 RETURNING ${sleepFields}`,
+      [id, entry.sleptAt, entry.wokeAt, entry.note, entry.dream]
     )
     if (!result.rows.length) { res.status(404).json({ error: 'Запись сна не найдена.' }); return }
     res.json(result.rows[0])

@@ -110,10 +110,12 @@ export async function migrate(db: DB) {
         slept_at TIMESTAMP NOT NULL,
         woke_at TIMESTAMP NOT NULL,
         note TEXT NOT NULL DEFAULT '',
+        dream TEXT NOT NULL DEFAULT '',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         CHECK(woke_at > slept_at AND woke_at <= slept_at + INTERVAL '36 hours')
       )`
     )
+    await client.query(`ALTER TABLE sleep_entries ADD COLUMN IF NOT EXISTS dream TEXT NOT NULL DEFAULT ''`)
     await client.query(`CREATE INDEX IF NOT EXISTS sleep_woke_at_idx ON sleep_entries(woke_at DESC)`)
     await client.query(
       `CREATE TABLE IF NOT EXISTS tasks(id UUID PRIMARY KEY,title VARCHAR(200) NOT NULL,task_date DATE NOT NULL,completed BOOLEAN NOT NULL DEFAULT FALSE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
