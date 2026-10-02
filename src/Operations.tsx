@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { buildFinancialForecast } from './financeForecast'
 import MoneyPlanner from './MoneyPlanner'
+import { buildOperationStatement } from './operationStatement'
 import { defaultOperationCategories as defaultCategories } from '../shared/operationCategories'
 
 type OperationType = 'expense' | 'income'
@@ -110,6 +111,10 @@ export default function Operations() {
   const [templates, setTemplates] = useState<OperationTemplate[]>([])
   const [customCategories, setCustomCategories] = useState<OperationCategory[]>([])
   const [month, setMonth] = useState(today().slice(0, 7))
+  const [statementOpen, setStatementOpen] = useState(false)
+  const [statementFrom, setStatementFrom] = useState('')
+  const [statementTo, setStatementTo] = useState('')
+  const [statementError, setStatementError] = useState('')
   const [title, setTitle] = useState('')
   const [amount, setAmount] = useState('')
   const [subcategory, setSubcategory] = useState('')
@@ -240,6 +245,34 @@ export default function Operations() {
     setType('expense')
     setCategory('Продукты')
     setDate(today())
+  }
+
+  function openStatement() {
+    setStatementFrom(month ? `${month}-01` : '')
+    setStatementTo(month ? endOfMonth(month) : '')
+    setStatementError('')
+    setStatementOpen(true)
+  }
+
+  function downloadStatement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (disabled) return
+    setStatementError('')
+    try {
+      const statement = buildOperationStatement(operations, statementFrom, statementTo)
+      const url = URL.createObjectURL(new Blob([statement.text], { type: 'text/plain;charset=utf-8' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = statement.filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      setNotice(`Выписка скачана: ${statement.count} операций.`)
+      setLastAdded(null)
+    } catch (error) {
+      setStatementError(error instanceof Error ? error.message : 'Не удалось скачать выписку.')
+    }
   }
 
   function resetTemplateForm() {
@@ -531,8 +564,33 @@ export default function Operations() {
           <button type="button" className="secondary" onClick={() => setMonth('')}>
             Всё время
           </button>
+          <button type="button" className="secondary" disabled={disabled} onClick={openStatement}>
+            Скачать выписку
+          </button>
         </div>
       </header>
+
+      {statementOpen && (
+        <section className="card form-card" aria-labelledby="statement-title">
+          <div className="section-heading">
+            <h2 id="statement-title">Выписка по операциям</h2>
+            <button type="button" className="secondary" onClick={() => setStatementOpen(false)}>Закрыть</button>
+          </div>
+          <p className="muted">Все доходы и расходы за период, включая обе даты. TXT-файл можно прислать на анализ. Поиск на странице не ограничивает выписку.</p>
+          <form onSubmit={downloadStatement}>
+            <div className="form-grid">
+              <label>С даты<input type="date" min="1900-01-01" max="2100-12-31" value={statementFrom} onChange={(e) => setStatementFrom(e.target.value)} /></label>
+              <label>По дату<input type="date" min="1900-01-01" max="2100-12-31" value={statementTo} onChange={(e) => setStatementTo(e.target.value)} /></label>
+            </div>
+            <p className="muted">Пустая начальная дата — с начала учёта, пустая конечная — по последнюю запись.</p>
+            {statementError && <p className="message error" role="alert">{statementError}</p>}
+            <div className="form-actions">
+              <button type="submit" disabled={disabled}>Скачать TXT</button>
+              <button type="button" className="secondary" onClick={() => { setStatementFrom(''); setStatementTo(''); setStatementError('') }}>Всё время</button>
+            </div>
+          </form>
+        </section>
+      )}
 
       {loading && <p className="muted">Загружаем операции…</p>}
       {error && (
