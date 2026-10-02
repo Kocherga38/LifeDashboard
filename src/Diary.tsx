@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ClipboardEvent, FormEvent } from 'react'
 import { api, today } from './api'
 import './personal.css'
+import { MAX_DIARY_IMAGES } from '../shared/diary'
+import type { DiaryImage } from '../shared/diary'
+import { prepareDiaryImage } from './diary-images'
 
-type Entry = { id: string; date: string; title: string; content: string; createdAt: string }
+type Entry = { id: string; date: string; title: string; content: string; createdAt: string; images?: DiaryImage[] }
 
 export default function Diary() {
   const [items, setItems] = useState<Entry[]>([])
@@ -11,41 +14,85 @@ export default function Diary() {
   const [date, setDate] = useState(today())
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [images, setImages] = useState<DiaryImage[]>([])
+  const [busy, setBusy] = useState(false)
+  const lock = useRef(false)
+  const filesInput = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
   const load = () => api<Entry[]>('/api/diary').then(setItems)
   useEffect(() => { load().catch((e) => setError(e.message)) }, [])
-  const reset = () => { setEditing(null); setDate(today()); setTitle(''); setContent('') }
-  const edit = (x: Entry) => { setEditing(x); setDate(x.date); setTitle(x.title); setContent(x.content) }
+  const reset = () => { setEditing(null); setDate(today()); setTitle(''); setContent(''); setImages([]); setError('') }
+  const edit = (x: Entry) => { setEditing(x); setDate(x.date); setTitle(x.title); setContent(x.content); setImages(x.images ?? []); setError('') }
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    if (lock.current) return
+    lock.current = true; setBusy(true); setError('')
     try {
-      const body = JSON.stringify({ date, title, content })
+      const body = JSON.stringify({ date, title, content, images })
       await api(editing ? `/api/diary/${editing.id}` : '/api/diary', {
         method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body
       })
       reset(); await load()
     } catch (e) { setError((e as Error).message) }
+    finally { lock.current = false; setBusy(false) }
+  }
+  const addImages = async (files: File[]) => {
+    if (lock.current || !files.length) return
+    if (images.length + files.length > MAX_DIARY_IMAGES) {
+      setError(`Можно добавить до ${MAX_DIARY_IMAGES} изображений.`); return
+    }
+    lock.current = true; setBusy(true); setError('')
+    try {
+      const attachments = await Promise.all(files.map(prepareDiaryImage))
+      setImages((current) => [...current, ...attachments])
+    } catch (e) { setError((e as Error).message) }
+    finally { lock.current = false; setBusy(false) }
+  }
+  const paste = (e: ClipboardEvent<HTMLFormElement>) => {
+    const files = Array.from(e.clipboardData.items)
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile()).filter((file): file is File => file !== null)
+    if (!files.length) return
+    e.preventDefault()
+    void addImages(files)
   }
   const remove = async (x: Entry) => {
-    if (!confirm('Удалить эту запись из дневника?')) return
-    await api(`/api/diary/${x.id}`, { method: 'DELETE' })
-    if (editing?.id === x.id) reset()
-    await load()
+    if (lock.current || !confirm('Удалить эту запись из дневника?')) return
+    lock.current = true; setBusy(true); setError('')
+    try {
+      await api(`/api/diary/${x.id}`, { method: 'DELETE' })
+      if (editing?.id === x.id) reset()
+      await load()
+    } catch (e) { setError((e as Error).message) }
+    finally { lock.current = false; setBusy(false) }
   }
   return <main>
-    <header><div><div className="eyebrow">JOURNAL</div><h1>Дневник</h1><p className="muted">Отдельное место для мыслей, событий и состояния по дням.</p></div><button onClick={reset}>+ Запись</button></header>
+    <header><div><div className="eyebrow">JOURNAL</div><h1>Дневник</h1><p className="muted">Отдельное место для мыслей, событий и состояния по дням.</p></div><button disabled={busy} onClick={reset}>+ Запись</button></header>
     {error && <div className="message error">{error}</div>}
     <div className="diary-layout">
-      <form className="card diary-form" onSubmit={submit}>
+      <form className="card diary-form" onSubmit={submit} onPaste={paste} aria-busy={busy}>
+        <fieldset disabled={busy} className="diary-fields">
         <label>Дата<input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label>
         <label>Заголовок<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} placeholder="Необязательно" /></label>
-        <label>Запись<textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Что произошло? Что чувствуешь? Что важно запомнить?" required /></label>
+        <label>Запись<textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Что произошло? Что чувствуешь? Что важно запомнить?" required={!images.length} maxLength={500000} /></label>
+        <div className="diary-attachments">
+          <span>Фото и картинки</span>
+          <input ref={filesInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={(e) => { void addImages(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+          <button type="button" className="secondary" disabled={images.length >= MAX_DIARY_IMAGES} onClick={() => filesInput.current?.click()}>Добавить изображения</button>
+          <small className="muted">Выбери файлы или вставь картинку через ⌘V / Ctrl+V в поле записи. До 8 изображений; большие фото уменьшаются.</small>
+          {images.length > 0 && <div className="diary-images diary-image-previews">{images.map((image) => <figure key={image.id}>
+            <img src={image.dataUrl} alt={image.name} />
+            <button type="button" className="icon-button delete" aria-label={`Удалить изображение ${image.name}`} onClick={() => setImages((current) => current.filter((x) => x.id !== image.id))}>×</button>
+          </figure>)}</div>}
+        </div>
         <div className="form-actions"><button>{editing ? 'Сохранить' : 'Добавить'}</button>{editing && <button type="button" className="secondary" onClick={reset}>Отмена</button>}</div>
+        </fieldset>
       </form>
       <section className="diary-feed">
         {items.map((x) => <article className="card diary-entry" key={x.id}>
-          <div className="entry-head"><div><div className="eyebrow">{new Date(x.date + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</div>{x.title && <h2>{x.title}</h2>}</div><div><button className="icon-button" onClick={() => edit(x)}>✎</button><button className="icon-button delete" onClick={() => remove(x)}>×</button></div></div>
-          <p>{x.content}</p>
+          <div className="entry-head"><div><div className="eyebrow">{new Date(x.date + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</div>{x.title && <h2>{x.title}</h2>}</div><div><button disabled={busy} className="icon-button" onClick={() => edit(x)}>✎</button><button disabled={busy} className="icon-button delete" onClick={() => remove(x)}>×</button></div></div>
+          {x.content && <p>{x.content}</p>}
+          {!!x.images?.length && <div className="diary-images">{x.images.map((image) => <img key={image.id} src={image.dataUrl} alt={image.name} loading="lazy" />)}</div>}
         </article>)}
         {!items.length && <div className="card muted">Записей пока нет.</div>}
       </section>

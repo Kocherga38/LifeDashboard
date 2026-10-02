@@ -2,6 +2,7 @@ import express from 'express'
 import type { ErrorRequestHandler } from 'express'
 import { randomUUID } from 'node:crypto'
 import type { DB } from './database.js'
+import { validateDiaryImages } from '../shared/diary.js'
 import { validDate } from '../shared/journals.js'
 
 const idValid = (s: string) => /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s)
@@ -10,6 +11,7 @@ const textValid = (s: unknown, max = 100): s is string =>
 
 export function createPersonalApi(db: DB) {
   const app = express()
+  app.use('/api/diary', express.json({ limit: '14mb' }))
   app.use(express.json({ limit: '2mb' }))
 
   const sleepFields = `id,to_char(slept_at,'YYYY-MM-DD"T"HH24:MI') AS "sleptAt",
@@ -228,26 +230,28 @@ export function createPersonalApi(db: DB) {
 
   app.get('/api/diary', async (_req, res) =>
     res.json((await db.query(
-      `SELECT id,to_char(entry_date,'YYYY-MM-DD') AS date,title,content,created_at AS "createdAt" FROM diary_entries ORDER BY entry_date DESC,created_at DESC`
+      `SELECT id,to_char(entry_date,'YYYY-MM-DD') AS date,title,content,images,created_at AS "createdAt" FROM diary_entries ORDER BY entry_date DESC,created_at DESC`
     )).rows)
   )
   app.post('/api/diary', async (req, res) => {
-    const { date, title = '', content } = req.body ?? {}
-    if (!validDate(date) || typeof title !== 'string' || title.length > 200 || !textValid(content, 500000))
+    const { date, title = '', content = '', images = [] } = req.body ?? {}
+    const attachments = validateDiaryImages(images)
+    if (!validDate(date) || typeof title !== 'string' || title.length > 200 || (typeof content !== 'string' || content.length > 500000 || (!content.trim() && !(attachments?.length))))
       throw new Error('Проверь дату и текст записи.')
     const row = (await db.query(
-      `INSERT INTO diary_entries(id,entry_date,title,content) VALUES($1,$2::date,$3,$4) RETURNING id,to_char(entry_date,'YYYY-MM-DD') AS date,title,content,created_at AS "createdAt"`,
-      [randomUUID(), date, title.trim(), content.trim()]
+      `INSERT INTO diary_entries(id,entry_date,title,content,images) VALUES($1,$2::date,$3,$4,$5::jsonb) RETURNING id,to_char(entry_date,'YYYY-MM-DD') AS date,title,content,images,created_at AS "createdAt"`,
+      [randomUUID(), date, title.trim(), content.trim(), JSON.stringify(attachments)]
     )).rows[0]
     res.status(201).json(row)
   })
   app.put('/api/diary/:id', async (req, res) => {
-    const id = String(req.params.id), { date, title = '', content } = req.body ?? {}
-    if (!idValid(id) || !validDate(date) || typeof title !== 'string' || title.length > 200 || !textValid(content, 500000))
+    const id = String(req.params.id), { date, title = '', content = '', images } = req.body ?? {}
+    const attachments = images === undefined ? null : validateDiaryImages(images)
+    if (!idValid(id) || !validDate(date) || typeof title !== 'string' || title.length > 200 || (typeof content !== 'string' || content.length > 500000 || (!content.trim() && !(attachments?.length))))
       throw new Error('Проверь запись.')
     const r = await db.query(
-      `UPDATE diary_entries SET entry_date=$1::date,title=$2,content=$3,updated_at=NOW() WHERE id=$4 RETURNING id,to_char(entry_date,'YYYY-MM-DD') AS date,title,content,created_at AS "createdAt"`,
-      [date, title.trim(), content.trim(), id]
+      `UPDATE diary_entries SET entry_date=$1::date,title=$2,content=$3,images=COALESCE($5::jsonb,images),updated_at=NOW() WHERE id=$4 RETURNING id,to_char(entry_date,'YYYY-MM-DD') AS date,title,content,images,created_at AS "createdAt"`,
+      [date, title.trim(), content.trim(), id, attachments === null ? null : JSON.stringify(attachments)]
     )
     if (!r.rows.length) { res.status(404).json({ error: 'Запись не найдена.' }); return }
     res.json(r.rows[0])
