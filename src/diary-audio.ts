@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { selectDiaryRecordingType, stopDiaryRecording, verifyRecordedAudio } from './diary-recording'
+import type { RecordingSession } from './diary-recording'
 import { DIARY_AUDIO_TYPES, MAX_DIARY_AUDIO_BYTES } from '../shared/diary-audio'
 import type { DiaryAudio } from '../shared/diary-audio'
 
@@ -14,8 +16,6 @@ export async function prepareDiaryAudio(blob: Blob, name: string): Promise<Diary
   })
   return { id: crypto.randomUUID(), name: name.slice(0, 200), dataUrl }
 }
-
-type RecordingSession = { recorder?: MediaRecorder; stream?: MediaStream; timer?: ReturnType<typeof setInterval>; cancelled: boolean }
 
 export function useDiaryRecorder(onReady: (audio: DiaryAudio) => void, onError: (message: string) => void) {
   const [active, setActive] = useState(false)
@@ -38,10 +38,7 @@ export function useDiaryRecorder(onReady: (audio: DiaryAudio) => void, onError: 
   const stop = (cancel = false) => {
     const current = session.current
     if (!current) return
-    current.cancelled = cancel
-    clearInterval(current.timer)
-    if (current.recorder?.state === 'recording') current.recorder.stop()
-    current.stream?.getTracks().forEach((track) => track.stop())
+    stopDiaryRecording(current, cancel)
     setRecording(false)
   }
   const start = async () => {
@@ -61,7 +58,7 @@ export function useDiaryRecorder(onReady: (audio: DiaryAudio) => void, onError: 
     try {
       current.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       if (!mounted.current || current.cancelled) { finish(); return }
-      const mimeType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find((type) => MediaRecorder.isTypeSupported(type))
+      const mimeType = selectDiaryRecordingType((type) => MediaRecorder.isTypeSupported(type))
       const recorder = new MediaRecorder(current.stream, mimeType ? { mimeType, audioBitsPerSecond: 64000 } : { audioBitsPerSecond: 64000 })
       current.recorder = recorder
       const chunks: Blob[] = []
@@ -84,13 +81,15 @@ export function useDiaryRecorder(onReady: (audio: DiaryAudio) => void, onError: 
         clearInterval(current.timer)
         try {
           if (!current.cancelled && mounted.current) {
-            const voice = await prepareDiaryAudio(new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type }), `Голосовое ${new Date().toLocaleString('ru-RU')}`)
+            const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type })
+            await verifyRecordedAudio(blob)
+            const voice = await prepareDiaryAudio(blob, `Голосовое ${new Date().toLocaleString('ru-RU')}`)
             if (!current.cancelled && mounted.current) onReady(voice)
           }
         } catch (error) { if (mounted.current) onError((error as Error).message) }
         finally { finish() }
       }
-      recorder.start(1000)
+      recorder.start()
       setRecording(true)
       const started = Date.now()
       current.timer = setInterval(() => {
