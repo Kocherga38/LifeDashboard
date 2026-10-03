@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ClipboardEvent, FormEvent } from 'react'
+import { useDiaryDraft } from './diary-draft'
 import { diaryAttachmentsSaved } from './diary-save'
 import { api, today } from './api'
 import './personal.css'
@@ -26,14 +27,18 @@ export default function Diary() {
   const filesInput = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
   const recorder = useDiaryRecorder((voice) => setAudio((current) => [...current, voice]), setError)
-  const blocked = busy || recorder.active
+  const draftReady = useDiaryDraft({ editing, date, title, content, audio, images }, (draft) => {
+    setEditing(draft.editing); setDate(draft.date); setTitle(draft.title); setContent(draft.content)
+    setAudio(draft.audio); setImages(draft.images)
+  }, setError)
+  const blocked = busy || recorder.active || !draftReady
   const load = () => api<Entry[]>('/api/diary').then(setItems)
   useEffect(() => { load().catch((e) => setError(e.message)) }, [])
   const reset = () => { setEditing(null); setDate(today()); setTitle(''); setContent(''); setImages([]); setAudio([]); setError('') }
   const edit = (x: Entry) => { setEditing(x); setDate(x.date); setTitle(x.title); setContent(x.content); setImages(x.images ?? []); setAudio(x.audio ?? []); setError('') }
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    if (lock.current || recorder.active) return
+    if (lock.current || recorder.active || !draftReady) return
     lock.current = true; setBusy(true); setError('')
     try {
       const body = JSON.stringify({ date, title, content, images, audio })
@@ -45,14 +50,14 @@ export default function Diary() {
         // Keep the draft attachments and retry against this entry after restart.
         setEditing(saved)
         await load()
-        throw new Error('Сервер сохранил текст, но не подтвердил сохранение вложений. Голосовые и картинки остались в форме. Скачай аудио из формы, останови Trellis через Ctrl+C и запусти снова. Затем повтори сохранение записи.')
+        throw new Error('Сервер сохранил текст, но не подтвердил сохранение вложений. Голосовые и картинки остались в форме. Черновик с вложениями сохранён в этом браузере. Запусти обновлённый Trellis и повтори сохранение записи.')
       }
       reset(); await load()
     } catch (e) { setError((e as Error).message) }
     finally { lock.current = false; setBusy(false) }
   }
   const addImages = async (files: File[]) => {
-    if (lock.current || recorder.active || !files.length) return
+    if (lock.current || recorder.active || !draftReady || !files.length) return
     if (images.length + files.length > MAX_DIARY_IMAGES) {
       setError(`Можно добавить до ${MAX_DIARY_IMAGES} изображений.`); return
     }
@@ -64,7 +69,7 @@ export default function Diary() {
     finally { lock.current = false; setBusy(false) }
   }
   const addAudio = async (files: File[]) => {
-    if (lock.current || recorder.active || !files.length) return
+    if (lock.current || recorder.active || !draftReady || !files.length) return
     if (audio.length + files.length > MAX_DIARY_AUDIO) { setError(`Можно добавить до ${MAX_DIARY_AUDIO} голосовых.`); return }
     lock.current = true; setBusy(true); setError('')
     try { const voices = await Promise.all(files.map((file) => prepareDiaryAudio(file, file.name))); setAudio((current) => [...current, ...voices]) }

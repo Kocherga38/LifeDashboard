@@ -40,6 +40,7 @@ try {
     await writeFile('node_modules/.trellis-lock', hash)
   }
   const args = [
+    ...(process.argv.includes('--built') ? [] : ['--watch', '--watch-preserve-output']),
     '--import',
     'tsx',
     'server/index.ts',
