@@ -142,7 +142,6 @@ export async function migrate(db: DB) {
       `CREATE TABLE IF NOT EXISTS diary_entries(id UUID PRIMARY KEY,entry_date DATE NOT NULL,title VARCHAR(200) NOT NULL DEFAULT '',content TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
     )
     await client.query(`ALTER TABLE diary_entries ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb`)
-    await client.query(`ALTER TABLE diary_entries ADD COLUMN IF NOT EXISTS audio JSONB NOT NULL DEFAULT '[]'::jsonb`)
     await client.query(`CREATE INDEX IF NOT EXISTS diary_date_idx ON diary_entries(entry_date DESC)`)
     await client.query(
       `CREATE TABLE IF NOT EXISTS flashcards(id UUID PRIMARY KEY,deck VARCHAR(100) NOT NULL DEFAULT 'Основная',front TEXT NOT NULL,back TEXT NOT NULL,due_date DATE NOT NULL DEFAULT CURRENT_DATE,interval_days INTEGER NOT NULL DEFAULT 0,ease_factor NUMERIC(4,2) NOT NULL DEFAULT 2.50,repetitions INTEGER NOT NULL DEFAULT 0,lapses INTEGER NOT NULL DEFAULT 0,last_reviewed_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`

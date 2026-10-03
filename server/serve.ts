@@ -1,7 +1,7 @@
 import express from 'express'
 import { createServer } from 'node:http'
 import { createHash } from 'node:crypto'
-import { readFile, realpath, readdir } from 'node:fs/promises'
+import { readFile, realpath } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -9,18 +9,6 @@ import { createApi } from './api.js'
 import { createPersonalApi } from './personal-api.js'
 import { createPlanningApi } from './planning-api.js'
 import type { DB } from './database.js'
-
-async function serverRevision(root: string, dev: boolean) {
-  const hash = createHash('sha256').update(dev ? 'dev' : 'built')
-  for (const directory of ['server', 'shared']) {
-    for (const name of (await readdir(path.join(root, directory))).sort()) {
-      if (!name.endsWith('.ts')) continue
-      hash.update(directory + '/' + name).update(await readFile(path.join(root, directory, name)))
-    }
-  }
-  if (!dev) hash.update(await readFile(path.join(root, 'dist/index.html')).catch(() => ''))
-  return hash.digest('hex')
-}
 
 function openBrowser(url: string) {
   if (process.platform !== 'darwin') return
@@ -43,7 +31,6 @@ export async function startServer(
     )
     .digest('hex')
     .slice(0, 20)
-  const revision = await serverRevision(root, options.dev)
   const preferred = options.port ?? Number(process.env.PORT || 5180)
   if (!Number.isInteger(preferred) || preferred < 1024 || preferred > 65000)
     throw new Error('PORT должен быть от 1024 до 65000.')
@@ -51,7 +38,7 @@ export async function startServer(
   const server = createServer(app)
   app.use((req, res, next) => {
     if (req.path === '/api/health') {
-      res.json({ app: 'trellis', identity, revision, version: '1.0.0' })
+      res.json({ app: 'trellis', identity, version: '1.0.0' })
       return
     }
     next()
@@ -65,8 +52,8 @@ export async function startServer(
       const r = await fetch(`http://127.0.0.1:${port}/api/health`, {
         signal: AbortSignal.timeout(350)
       })
-      const body = (await r.json().catch(() => null)) as { app?: string; identity?: string; revision?: string } | null
-      if (body?.app === 'trellis' && body.identity === identity && body.revision === revision) {
+      const body = (await r.json().catch(() => null)) as { app?: string; identity?: string } | null
+      if (body?.app === 'trellis' && body.identity === identity) {
         const url = `http://localhost:${port}`
         console.log(`Trellis уже работает: ${url}`)
         if (options.open) openBrowser(url)
@@ -126,8 +113,6 @@ export async function startServer(
   const close = async () => {
     if (closing) return
     closing = true
-    process.off('SIGINT', stop)
-    process.off('SIGTERM', stop)
     server.closeAllConnections()
     await closeVite?.()
     await new Promise<void>((r) => server.close(() => r()))

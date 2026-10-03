@@ -7,7 +7,6 @@ import { migrate } from '../server/database.js'
 import { createPersonalApi } from '../server/personal-api.js'
 import { createPlanningApi } from '../server/planning-api.js'
 import { createApi } from '../server/api.js'
-import { MAX_DIARY_AUDIO_BYTES } from '../shared/diary-audio.js'
 import { MAX_DIARY_IMAGE_BYTES } from '../shared/diary.js'
 
 const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='
@@ -38,28 +37,6 @@ test('Дневник сохраняет картинки, редактирует
     const note = await request('/api/notes', 'POST', { title: 'Заметка', content: 'Текст' })
     assert.equal((await request(`/api/notes/${note.body.id}`, 'PUT', { title: 'Заметка', content: 'Новый текст' })).status, 200)
     assert.deepEqual((await request('/api/diary')).body[0].images, [])
-    assert.deepEqual((await request('/api/diary')).body[0].audio, [])
-    const voice = (dataUrl = 'data:audio/mp4;base64,AAAA') => ({ id: randomUUID(), name: 'Голосовое.m4a', dataUrl })
-    const voices = [voice(), voice('data:audio/webm;base64,AAAA')]
-    const voiceInput = { date: '2026-10-03', content: '', audio: voices }
-    const voiceCreated = await request('/api/diary', 'POST', voiceInput)
-    assert.equal(voiceCreated.status, 201)
-    const voiceId = voiceCreated.body.id
-    assert.deepEqual(voiceCreated.body.audio, voices)
-    assert.deepEqual((await request('/api/diary')).body.find((x: { id: string }) => x.id === voiceId).audio, voices)
-    assert.deepEqual((await request('/api/export')).body.diary_entries.find((x: { id: string }) => x.id === voiceId).audio, voices)
-    assert.deepEqual((await request(`/api/diary/${voiceId}`, 'PUT', { ...voiceInput, audio: [voices[1]] })).body.audio, [voices[1]])
-    assert.deepEqual((await request(`/api/diary/${voiceId}`, 'PUT', { date: voiceInput.date, content: 'Старый клиент' })).body.audio, [voices[1]])
-    assert.equal((await request(`/api/diary/${voiceId}`, 'PUT', { ...voiceInput, audio: [] })).status, 400)
-    assert.deepEqual((await request(`/api/diary/${voiceId}`, 'PUT', { ...voiceInput, content: 'Без аудио', audio: [] })).body.audio, [])
-    for (const invalid of [null, {}, Array.from({ length: 4 }, () => voice()), [voices[0], voices[0]],
-      [voice('data:text/html;base64,AAAA')], [voice('https://example.com/audio.mp3')],
-      [voice('data:audio/mp4;base64,!!!!')], [voice('data:audio/mp4;base64,' + Buffer.alloc(MAX_DIARY_AUDIO_BYTES + 1).toString('base64'))]]) {
-      assert.equal((await request('/api/diary', 'POST', { ...voiceInput, audio: invalid })).status, 400)
-    }
-    const largeVoice = voice('data:audio/mp4;base64,' + Buffer.alloc(MAX_DIARY_AUDIO_BYTES).toString('base64'))
-    assert.equal((await request('/api/diary', 'POST', { ...voiceInput, audio: [largeVoice] })).status, 201)
-    assert.equal((await request(`/api/diary/${voiceId}`, 'DELETE')).status, 204)
     const attachments = [image(), image()]
     const input = { date: '2026-10-03', title: 'Фото', content: '', images: attachments }
     const created = await request('/api/diary', 'POST', input)
