@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ClipboardEvent, FormEvent } from 'react'
+import { diaryAttachmentsSaved } from './diary-save'
 import { api, today } from './api'
 import './personal.css'
 import { MAX_DIARY_IMAGES } from '../shared/diary'
@@ -36,9 +37,16 @@ export default function Diary() {
     lock.current = true; setBusy(true); setError('')
     try {
       const body = JSON.stringify({ date, title, content, images, audio })
-      await api(editing ? `/api/diary/${editing.id}` : '/api/diary', {
+      const saved = await api<Entry>(editing ? `/api/diary/${editing.id}` : '/api/diary', {
         method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body
       })
+      if (!diaryAttachmentsSaved({ audio, images }, saved)) {
+        // Older running servers can accept the text while silently ignoring audio.
+        // Keep the draft attachments and retry against this entry after restart.
+        setEditing(saved)
+        await load()
+        throw new Error('Сервер сохранил текст, но не подтвердил сохранение вложений. Голосовые и картинки остались в форме. Скачай аудио из формы, останови Trellis через Ctrl+C и запусти снова. Затем повтори сохранение записи.')
+      }
       reset(); await load()
     } catch (e) { setError((e as Error).message) }
     finally { lock.current = false; setBusy(false) }
@@ -101,14 +109,14 @@ export default function Diary() {
           </figure>)}</div>}
         </div>
         <div className="diary-attachments">
-          <span>Голосовые сообщения</span>
+          <span>Голосовые сообщения{audio.length > 0 ? ` · ${audio.length} прикреплено` : ''}</span>
           <input ref={audioInput} type="file" accept="audio/webm,audio/ogg,audio/mp4,audio/mpeg,audio/wav,audio/x-wav,.m4a" multiple hidden onChange={(e) => { void addAudio(Array.from(e.target.files ?? [])); e.target.value = '' }} />
           <button type="button" className="secondary" disabled={audio.length >= MAX_DIARY_AUDIO} onClick={() => { setError(''); void recorder.start() }}>Записать голосовое</button>
           <button type="button" className="secondary" disabled={audio.length >= MAX_DIARY_AUDIO} onClick={() => audioInput.current?.click()}>Загрузить аудиофайл</button>
           <small className="muted">До 3 голосовых по 5 МБ. Запись с микрофона — до 10 минут.</small>
-          {audio.map((voice) => <div className="diary-audio" key={voice.id}><small>{voice.name}</small><audio controls preload="metadata" src={voice.dataUrl} aria-label={voice.name} /><button type="button" className="secondary" onClick={() => setAudio((current) => current.filter((x) => x.id !== voice.id))}>Удалить голосовое</button></div>)}
+          {audio.map((voice) => <div className="diary-audio" key={voice.id}><small>{voice.name} · будет сохранено с записью</small><audio controls preload="metadata" src={voice.dataUrl} aria-label={voice.name} /><button type="button" className="secondary" onClick={() => setAudio((current) => current.filter((x) => x.id !== voice.id))}>Удалить голосовое</button><a href={voice.dataUrl} download={`${voice.name.replace(/[\/:*?"<>|]/g, '-')}.${voice.dataUrl.startsWith('data:audio/mp4') ? 'm4a' : voice.dataUrl.slice(11, voice.dataUrl.indexOf(';'))}`}>Скачать аудио</a></div>)}
         </div>
-        <div className="form-actions"><button>{editing ? 'Сохранить' : 'Добавить'}</button>{editing && <button type="button" className="secondary" onClick={reset}>Отмена</button>}</div>
+        <div className="form-actions"><button>{editing ? 'Сохранить запись' : 'Добавить запись'}{audio.length > 0 ? ` с ${audio.length} голосовыми` : ''}</button>{editing && <button type="button" className="secondary" onClick={reset}>Отмена</button>}</div>
         </fieldset>
         {recorder.active && <div className="diary-attachments" role="status">
           <span>{recorder.recording ? `Запись: ${Math.floor(recorder.seconds / 60)}:${String(recorder.seconds % 60).padStart(2, '0')}` : 'Подготовка голосового…'}</span>
@@ -120,7 +128,7 @@ export default function Diary() {
         {items.map((x) => <article className="card diary-entry" key={x.id}>
           <div className="entry-head"><div><div className="eyebrow">{new Date(x.date + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</div>{x.title && <h2>{x.title}</h2>}</div><div><button disabled={blocked} className="icon-button" onClick={() => edit(x)}>✎</button><button disabled={blocked} className="icon-button delete" onClick={() => remove(x)}>×</button></div></div>
           {x.content && <p>{x.content}</p>}
-          {x.audio?.map((voice) => <div className="diary-audio" key={voice.id}><small>{voice.name}</small><audio controls preload="none" src={voice.dataUrl} aria-label={voice.name} /></div>)}
+          {x.audio?.map((voice) => <div className="diary-audio" key={voice.id}><small>Голосовое · {voice.name}</small><audio controls preload="none" src={voice.dataUrl} aria-label={voice.name} /></div>)}
           {!!x.images?.length && <div className="diary-images">{x.images.map((image) => <img key={image.id} src={image.dataUrl} alt={image.name} loading="lazy" />)}</div>}
         </article>)}
         {!items.length && <div className="card muted">Записей пока нет.</div>}
