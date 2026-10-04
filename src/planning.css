@@ -9,6 +9,9 @@
 .planning-panel label:has(input[type="checkbox"]) { display: flex; align-items: center; }
 .calendar-event-form { margin-bottom: 18px; }
 .calendar-event-form h2 { margin: 0; }
+.event-repeat-controls { display: grid; gap: 12px; min-width: 0; padding: 14px; border: 1px solid #303944; border-radius: 10px; }
+.calendar-event-form > *, .event-repeat-controls > *, .calendar-event-form label { min-width: 0; }
+.calendar-event-form .form-actions { flex-wrap: wrap; }
 .calendar-event-form textarea, .quick-add textarea, .reflection-form textarea, .speaking-panel textarea { min-height: 80px; resize: vertical; }
 .calendar-events { display: grid; gap: 5px; margin-bottom: 10px; }
 .calendar-event { width: 100%; text-align: left; padding: 8px; border: 1px solid #5b5972; border-radius: 9px; background: #29283b; color: #e5dafd; font-size: 11px; white-space: normal; }

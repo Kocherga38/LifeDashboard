@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api, today } from './api'
+import { eventRepeatLabel } from '../shared/events'
+import type { CalendarEvent, EventRecurrence } from '../shared/events'
 import './calendar.css'
 import './planning.css'
 
@@ -20,8 +22,7 @@ type Task = {
   color: TaskColor
 }
 
-type CalendarEvent = { id: string; date: string; title: string; time: string; place: string; note: string; reflection: string }
-const emptyEvent = (date = today()) => ({ date, title: '', time: '', place: '', note: '', reflection: '' })
+const emptyEvent = (date = today()) => ({ date, title: '', time: '', place: '', note: '', reflection: '', recurrence: null as EventRecurrence | null })
 
 type View = 'week' | 'month'
 type RepeatMode = 'none' | 'interval' | 'weekdays'
@@ -184,6 +185,42 @@ function RepeatControls({
   )
 }
 
+function EventRepeatControls({ value, onChange }: {
+  value: EventRecurrence | null
+  onChange: (value: EventRecurrence | null) => void
+}) {
+  const changeMode = (mode: string) => {
+    const until = value?.until ? { until: value.until } : {}
+    onChange(mode === 'interval' ? { type: 'interval', intervalDays: 1, ...until }
+      : mode === 'weekdays' ? { type: 'weekdays', weekdays: [0], ...until }
+      : mode === 'cycle' ? { type: 'cycle', workDays: 2, offDays: 2, ...until } : null)
+  }
+  return <div className="event-repeat-controls">
+    <label>Повторение<select aria-label="Повторение события" value={value?.type ?? 'none'} onChange={(e) => changeMode(e.target.value)}>
+      <option value="none">Не повторять</option>
+      <option value="interval">Раз в N дней (1 — каждый день)</option>
+      <option value="weekdays">По дням недели</option>
+      <option value="cycle">Рабочие / выходные (2/2)</option>
+    </select></label>
+    {value?.type === 'interval' && <label>Каждые N дней<input type="number" required min={1} max={365} value={value.intervalDays} onChange={(e) => onChange({ ...value, intervalDays: Number(e.target.value) })} /></label>}
+    {value?.type === 'cycle' && <>
+      <div className="planning-fields">
+        <label>Рабочих дней подряд<input type="number" required min={1} max={365} value={value.workDays} onChange={(e) => onChange({ ...value, workDays: Number(e.target.value) })} /></label>
+        <label>Выходных дней подряд<input type="number" required min={1} max={365} value={value.offDays} onChange={(e) => onChange({ ...value, offDays: Number(e.target.value) })} /></label>
+      </div>
+      <small className="muted">Дата начала — первый рабочий день цикла. Событие появится в каждый рабочий день, затем пропустит выходные.</small>
+    </>}
+    {value?.type === 'weekdays' && <div className="weekday-picker" aria-label="Дни повторения события">
+      {weekdays.map((day, index) => <button key={day} type="button" aria-pressed={value.weekdays.includes(index)} className={value.weekdays.includes(index) ? 'active' : ''}
+        onClick={() => onChange({ ...value, weekdays: value.weekdays.includes(index) ? value.weekdays.filter((d) => d !== index) : [...value.weekdays, index].sort() })}>{day}</button>)}
+    </div>}
+    {value && <label>Повторять до (необязательно)<input type="date" value={value.until ?? ''} onChange={(e) => {
+      const { until: _until, ...rule } = value
+      onChange(e.target.value ? { ...rule, until: e.target.value } : rule)
+    }} /></label>}
+  </div>
+}
+
 export default function Calendar() {
   const [view, setView] = useState<View>('week')
   const [anchor, setAnchor] = useState(() => parseDate(today()))
@@ -193,6 +230,7 @@ export default function Calendar() {
   const [eventEditor, setEventEditor] = useState(false)
   const eventEditorRef = useRef<HTMLFormElement>(null)
   const [eventId, setEventId] = useState<string | null>(null)
+  const [eventWasRecurring, setEventWasRecurring] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [addingDate, setAddingDate] = useState<string | null>(null)
@@ -227,6 +265,7 @@ export default function Calendar() {
 
   async function saveEvent(event: FormEvent) {
     event.preventDefault()
+    if (saving) return
     setSaving(true); setError('')
     try {
       await api(eventId ? `/api/events/${eventId}` : '/api/events', { method: eventId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(eventForm) })
@@ -236,12 +275,15 @@ export default function Calendar() {
     finally { setSaving(false) }
   }
   async function removeEvent() {
-    if (!eventId || !window.confirm('Удалить это событие?')) return
+    if (!eventId || saving || !window.confirm(eventWasRecurring ? 'Удалить всю серию событий, включая прошедшие?' : 'Удалить это событие?')) return
+    setSaving(true); setError('')
     try { await api(`/api/events/${eventId}`, { method: 'DELETE' }); setEventEditor(false); setEventId(null); await loadEvents() }
     catch (e) { setError((e as Error).message) }
+    finally { setSaving(false) }
   }
   function openEvent(date: string, entry?: CalendarEvent) {
-    setEventId(entry?.id ?? null); setEventForm(entry ? { date: entry.date, title: entry.title, time: entry.time, place: entry.place, note: entry.note, reflection: entry.reflection } : emptyEvent(date)); setEventEditor(true)
+    setError(''); setEventWasRecurring(!!entry?.recurrence)
+    setEventId(entry?.id ?? null); setEventForm(entry ? { date: entry.startDate ?? entry.date, title: entry.title, time: entry.time, place: entry.place, note: entry.note, reflection: entry.reflection, recurrence: entry.recurrence ?? null } : emptyEvent(date)); setEventEditor(true)
     requestAnimationFrame(() => eventEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
@@ -468,10 +510,13 @@ export default function Calendar() {
       {error && <div className="message error">{error}</div>}
       {eventEditor && <form className="card calendar-event-form" ref={eventEditorRef} onSubmit={(e) => void saveEvent(e)}>
         <h2>{eventId ? 'Изменить событие' : 'Новое событие'}</h2>
-        <div className="planning-fields"><label>Название<input required maxLength={200} value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} /></label><label>Дата<input required type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} /></label><label>Время<input type="time" value={eventForm.time} onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })} /></label><label>Место<input maxLength={200} value={eventForm.place} onChange={(e) => setEventForm({ ...eventForm, place: e.target.value })} /></label></div>
+        {eventId && (eventWasRecurring || eventForm.recurrence) && <p className="muted">Изменения применятся ко всей серии, включая прошедшие события. Заметки общие для всей серии.</p>}
+        <div className="planning-fields"><label>Название<input required maxLength={200} value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} /></label><label>{eventForm.recurrence ? 'Дата начала' : 'Дата'}<input required type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} /></label><label>Время<input type="time" value={eventForm.time} onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })} /></label><label>Место<input maxLength={200} value={eventForm.place} onChange={(e) => setEventForm({ ...eventForm, place: e.target.value })} /></label></div>
+        <EventRepeatControls value={eventForm.recurrence} onChange={(recurrence) => setEventForm({ ...eventForm, recurrence })} />
+        {!eventId && eventForm.recurrence && <small className="muted">Время, место и заметки будут общими для всех повторений.</small>}
         <label>Подготовка или заметка<textarea maxLength={5000} value={eventForm.note} onChange={(e) => setEventForm({ ...eventForm, note: e.target.value })} /></label>
         <label>Что осталось после события<textarea maxLength={5000} value={eventForm.reflection} onChange={(e) => setEventForm({ ...eventForm, reflection: e.target.value })} /></label>
-        <div className="form-actions"><button disabled={saving}>Сохранить</button><button type="button" className="secondary" onClick={() => setEventEditor(false)}>Отмена</button>{eventId && <button type="button" className="secondary" onClick={() => void removeEvent()}>Удалить</button>}</div>
+        <div className="form-actions"><button disabled={saving || (eventForm.recurrence?.type === 'weekdays' && !eventForm.recurrence.weekdays.length)}>{eventId && (eventWasRecurring || eventForm.recurrence) ? 'Сохранить всю серию' : 'Сохранить'}</button><button type="button" disabled={saving} className="secondary" onClick={() => setEventEditor(false)}>Отмена</button>{eventId && <button type="button" disabled={saving} className="secondary" onClick={() => void removeEvent()}>{eventWasRecurring ? 'Удалить всю серию' : 'Удалить'}</button>}</div>
       </form>}
 
       <section className="calendar-toolbar" aria-label="Навигация календаря">
@@ -523,7 +568,7 @@ export default function Calendar() {
                   {isToday && <span className="today-chip">сегодня</span>}
                 </div>
 
-                <div className="calendar-events">{events.filter((entry) => entry.date === date).sort((a, b) => a.time.localeCompare(b.time)).map((entry) => <button key={entry.id} className="calendar-event" onClick={() => openEvent(date, entry)} title={[entry.place, entry.note, entry.reflection].filter(Boolean).join(" · ")}><strong>{entry.time || "◷"} {entry.title}</strong>{entry.place && <small>{entry.place}</small>}{entry.reflection && <small>Есть заметка после ↗</small>}</button>)}</div>
+                <div className="calendar-events">{events.filter((entry) => entry.date === date).sort((a, b) => a.time.localeCompare(b.time)).map((entry) => <button key={`${entry.id}:${entry.date}`} className="calendar-event" onClick={() => openEvent(date, entry)} title={[entry.place, entry.note, entry.reflection].filter(Boolean).join(" · ")}><strong>{entry.time || "◷"} {entry.title}</strong>{entry.recurrence && <small>↻ {eventRepeatLabel(entry.recurrence)}</small>}{entry.place && <small>{entry.place}</small>}{entry.reflection && <small>Есть заметка после ↗</small>}</button>)}</div>
                 <div className="task-list">
                   {items.map((task) => {
                     const isEditing = editing ? taskIdentity(editing) === taskIdentity(task) : false

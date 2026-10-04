@@ -185,6 +185,7 @@ export async function migrate(db: DB) {
       `CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value JSONB NOT NULL)`
     )
     await client.query(`CREATE TABLE IF NOT EXISTS calendar_events(id UUID PRIMARY KEY,event_date DATE NOT NULL,title VARCHAR(200) NOT NULL,event_time VARCHAR(5) NOT NULL DEFAULT '',place VARCHAR(200) NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '',reflection TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+    await client.query(`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS recurrence JSONB`)
     await client.query(`CREATE INDEX IF NOT EXISTS calendar_events_date_idx ON calendar_events(event_date)`)
     await client.query(`CREATE TABLE IF NOT EXISTS planned_shifts(id UUID PRIMARY KEY,shift_date DATE NOT NULL,expected_pay NUMERIC(12,2) NOT NULL CHECK(expected_pay>=0),note TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
     await client.query(`ALTER TABLE planned_shifts ADD COLUMN IF NOT EXISTS received BOOLEAN NOT NULL DEFAULT FALSE`)
