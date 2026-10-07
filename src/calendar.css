@@ -189,10 +189,11 @@
 }
 
 .task-row {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 4px;
-  padding: 8px;
+  padding: 8px 8px 26px;
   border: 1px solid #2b313d;
   border-left: 3px solid var(--task-color, #2b313d);
   border-radius: 10px;
@@ -276,7 +277,10 @@
 
 .task-title {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  overflow-x: auto;
 }
 
 .task-row.done .task-title {
@@ -408,6 +412,9 @@
 }
 
 .task-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
   display: flex;
   align-items: center;
   gap: 1px;
