@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { buildFinancialForecast } from './financeForecast'
-import MoneyPlanner from './MoneyPlanner'
 import { buildOperationStatement } from './operationStatement'
 import { defaultOperationCategories as defaultCategories } from '../shared/operationCategories'
 
@@ -699,7 +698,6 @@ export default function Operations() {
         </p>
       </section>
 
-      <MoneyPlanner />
 
       <section className={`card form-card ${editingId ? 'editing' : ''}`}>
         <div className="section-heading">
