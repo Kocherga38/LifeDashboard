@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import Operations from './Operations'
 import DataPage from './DataPage'
@@ -60,6 +60,17 @@ export default function App() {
   const [ordering, setOrdering] = useState(false)
   const [draggedTab, setDraggedTab] = useState<Tab | null>(null)
   const [orderError, setOrderError] = useState('')
+  const lastRecordedTab = useRef<Tab | null>(null)
+
+  useEffect(() => {
+    if (lastRecordedTab.current === tab) return
+    lastRecordedTab.current = tab
+    void api('/api/activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'navigate', section: tab })
+    }).catch((error) => console.error('Не удалось записать открытие раздела:', error))
+  }, [tab])
 
   useEffect(() => {
     let alive = true

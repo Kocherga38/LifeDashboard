@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import type { DB } from './database.js'
 import { isKind, validateEntry, validDate, nutrients } from '../shared/journals.js'
 import { defaultOperationCategories } from '../shared/operationCategories.js'
+import { createActivityApi, exportData, recordExport } from './activity-log.js'
 
 const operationFields = `id,title,amount,category,type,subcategory,counterparty,note,to_char(operation_date,'YYYY-MM-DD') AS date`
 const budgetFields = `id,category,amount,to_char(month,'YYYY-MM') AS month`
@@ -156,6 +157,7 @@ export function createApi(db: DB) {
     next()
   })
   app.use(express.json({ limit: '2mb' }))
+  app.use(createActivityApi(db))
   app.get('/api/operation-categories', async (_req, res) => {
     res.json((await db.query(`SELECT id,name,type FROM operation_categories ORDER BY type,name,id`)).rows)
   })
@@ -723,31 +725,8 @@ export function createApi(db: DB) {
     res.json(values)
   })
   app.get('/api/export', async (_req, res) => {
-    const client = await db.connect()
-    const result: Record<string, unknown> = { version: 2, exportedAt: new Date().toISOString() }
-    try {
-      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
-      for (const table of [
-        'expenses',
-        'operation_categories',
-        'operation_templates',
-        'budgets',
-        'journal_entries',
-        'sleep_entries',
-        'calendar_events','planned_shifts','meal_notes','speaking_sessions','weekly_reflections',
-        'tasks',
-        'task_occurrences',
-        'personal_goals','monthly_goals',
-        'app_settings',
-      ])
-        result[table] = (await client.query(`SELECT * FROM ${table}`)).rows
-      await client.query('COMMIT')
-    } catch (e) {
-      await client.query('ROLLBACK')
-      throw e
-    } finally {
-      client.release()
-    }
+    await recordExport(db)
+    const result = await exportData(db)
     res.attachment(`trellis-backup-${new Date().toISOString().slice(0, 10)}.json`).json(result)
   })
   app.use('/api', (_req, res) =>

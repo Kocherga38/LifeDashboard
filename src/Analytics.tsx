@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { defaultOperationCategories } from '../shared/operationCategories'
+import { bookBalance } from './bookBalance'
+import { today } from './api'
 import {
   Bar,
   BarChart,
@@ -163,6 +165,7 @@ export default function Analytics() {
   const expenseTotal = total(expenses)
   const incomeTotal = total(incomes)
   const balance = (Math.round(incomeTotal * 100) - Math.round(expenseTotal * 100)) / 100
+  const currentBalance = bookBalance(operations, today())
 
   const categoryData = Array.from(new Set(expenses.map((item) => item.category)))
     .map((name) => ({
@@ -350,7 +353,7 @@ export default function Analytics() {
 
       {ready && (
         <>
-          <section className="summary">
+          <section className="summary money-summary">
             <article className="card">
               <p className="muted">Доходы за месяц</p>
               <div className="big-number positive">{money(incomeTotal)}</div>
@@ -364,6 +367,13 @@ export default function Analytics() {
               <div className={`big-number ${balance < 0 ? 'negative' : 'positive'}`}>
                 {money(balance)}
               </div>
+            </article>
+            <article className="card">
+              <p className="muted">Остаток по учёту</p>
+              <div className={`big-number ${currentBalance < 0 ? 'negative' : 'positive'}`}>
+                {money(currentBalance)}
+              </div>
+              <small>Все операции по сегодня, включая прошлые месяцы.</small>
             </article>
           </section>
 

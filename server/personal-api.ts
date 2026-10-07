@@ -1,4 +1,5 @@
 import express from 'express'
+import { exportData, recordExport } from './activity-log.js'
 import type { ErrorRequestHandler } from 'express'
 import { randomUUID } from 'node:crypto'
 import type { DB } from './database.js'
@@ -360,20 +361,8 @@ export function createPersonalApi(db: DB) {
   })
 
   app.get('/api/export', async (_req, res) => {
-    const client = await db.connect()
-    const result: Record<string, unknown> = { version: 2, exportedAt: new Date().toISOString() }
-    try {
-      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
-      for (const table of [
-        'expenses','operation_categories','budgets','journal_entries','sleep_entries','tasks','task_occurrences','note_folders','notes',
-        'diary_entries','flashcards','habits','habit_marks','personal_goals','monthly_goals','app_settings',
-        'calendar_events','planned_shifts','meal_notes','speaking_sessions','weekly_reflections'
-      ]) result[table] = (await client.query(`SELECT * FROM ${table}`)).rows
-      await client.query('COMMIT')
-    } catch (e) {
-      await client.query('ROLLBACK')
-      throw e
-    } finally { client.release() }
+    await recordExport(db)
+    const result = await exportData(db)
     res.attachment(`trellis-backup-${new Date().toISOString().slice(0,10)}.json`).json(result)
   })
 

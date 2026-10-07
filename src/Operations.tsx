@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { buildFinancialForecast } from './financeForecast'
+import { bookBalance } from './bookBalance'
 import { buildOperationStatement } from './operationStatement'
 import { defaultOperationCategories as defaultCategories } from '../shared/operationCategories'
 
@@ -210,20 +211,10 @@ export default function Operations() {
   const balance = (Math.round(incomeTotal * 100) - Math.round(expenseTotal * 100)) / 100
 
   const currentDate = today()
-  const periodOperations = operations.filter((item) => !month || item.date.startsWith(month))
-  const periodIncome = total(periodOperations.filter((item) => item.type === 'income'))
-  const periodExpenses = total(periodOperations.filter((item) => item.type === 'expense'))
-  const periodBalance =
-    (Math.round(periodIncome * 100) - Math.round(periodExpenses * 100)) / 100
-  const forecastStart = month && `${month}-01` > currentDate ? `${month}-01` : currentDate
-  const forecastEnd = month ? endOfMonth(month) : addDays(currentDate, 30)
-  const forecast = buildFinancialForecast(templates, periodBalance, forecastStart, forecastEnd)
-  const forecastWindow =
-    forecastStart > forecastEnd
-      ? 'Период завершён'
-      : month
-        ? `До ${dateLabel(forecastEnd)}`
-        : 'Следующие 30 дней'
+  const currentBalance = bookBalance(operations, currentDate)
+  const forecastEnd = addDays(currentDate, 30)
+  const forecast = buildFinancialForecast(templates, currentBalance, currentDate, forecastEnd)
+  const forecastWindow = `Следующие 30 дней · до ${dateLabel(forecastEnd)}`
 
   const breakdown = Array.from(new Set(expenses.map((item) => item.category)))
     .map((name) => ({
@@ -253,12 +244,16 @@ export default function Operations() {
     setStatementOpen(true)
   }
 
-  function downloadStatement(event: FormEvent<HTMLFormElement>) {
+  async function downloadStatement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (disabled) return
     setStatementError('')
     try {
       const statement = buildOperationStatement(operations, statementFrom, statementTo)
+      await request('/api/activity', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'export', format: 'txt', from: statementFrom, to: statementTo })
+      })
       const url = URL.createObjectURL(new Blob([statement.text], { type: 'text/plain;charset=utf-8' }))
       const link = document.createElement('a')
       link.href = url
@@ -615,7 +610,7 @@ export default function Operations() {
         </p>
       )}
 
-      <section className="summary">
+      <section className="summary money-summary">
         <article className="card">
           <p className="muted">Доходы</p>
           <div className="big-number positive">{loaded ? money(incomeTotal) : '—'}</div>
@@ -629,6 +624,13 @@ export default function Operations() {
           <div className={`big-number ${balance < 0 ? 'negative' : 'positive'}`}>
             {loaded ? money(balance) : '—'}
           </div>
+        </article>
+        <article className="card">
+          <p className="muted">Остаток по учёту</p>
+          <div className={`big-number ${currentBalance < 0 ? 'negative' : 'positive'}`}>
+            {loaded ? money(currentBalance) : '—'}
+          </div>
+          <small>Все операции по сегодня, включая прошлые месяцы. Поиск и период не влияют.</small>
         </article>
       </section>
 
@@ -666,7 +668,7 @@ export default function Operations() {
             </div>
             {loaded && forecast.firstShortfall && (
               <small className="forecast-warning">
-                К {dateLabel(forecast.firstShortfall.date)} по потоку не хватает{' '}
+                К {dateLabel(forecast.firstShortfall.date)} по учёту не хватает{' '}
                 {money(forecast.firstShortfall.amount)}
               </small>
             )}
@@ -693,8 +695,9 @@ export default function Operations() {
           </article>
         </div>
         <p className="forecast-note">
-          Прогноз считает денежный поток периода, а не фактический остаток на карте
-          {search ? '; поиск на него не влияет' : ''}.
+          Прогноз — от остатка по всей истории на следующие 30 дней, с учётом регулярных
+          доходов и обязательств. Поиск и выбранный период на него не влияют.
+          Для совпадения с реальными деньгами учти все операции и начальный остаток.
         </p>
       </section>
 
