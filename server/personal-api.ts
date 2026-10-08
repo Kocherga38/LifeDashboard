@@ -113,16 +113,51 @@ export function createPersonalApi(db: DB) {
     res.status(204).end()
   })
 
-  const monthlyFields = `id,parent_id AS "parentId",to_char(month,'YYYY-MM') AS month,title,description,next_step AS "nextStep",completed,created_at AS "createdAt",updated_at AS "updatedAt"`
+  const monthlyFields = `id,parent_id AS "parentId",parent_subgoal_id AS "parentSubgoalId",to_char(month,'YYYY-MM') AS month,title,description,next_step AS "nextStep",completed,created_at AS "createdAt",updated_at AS "updatedAt"`
   const monthlyInput = (body: Record<string, unknown> | undefined) => {
-    const { parentId, month, title, description = '', nextStep = '', completed = false } = body ?? {}
+    const { parentId, parentSubgoalId = null, month, title, description = '', nextStep = '', completed = false } = body ?? {}
     if (
       typeof parentId !== 'string' || !idValid(parentId) ||
+      (parentSubgoalId !== null && (typeof parentSubgoalId !== 'string' || !idValid(parentSubgoalId))) ||
       typeof month !== 'string' || !/^\d{4}-\d{2}$/.test(month) || !validDate(`${month}-01`) ||
       !textValid(title, 160) || typeof description !== 'string' || description.length > 4000 ||
       typeof nextStep !== 'string' || nextStep.length > 300 || typeof completed !== 'boolean'
     ) throw new Error('Проверь большую цель, месяц и описание подцели.')
-    return { parentId, month, title: title.trim(), description: description.trim(), nextStep: nextStep.trim(), completed }
+    return { parentId, parentSubgoalId, month, title: title.trim(), description: description.trim(), nextStep: nextStep.trim(), completed }
+  }
+
+  const saveMonthlyGoal = async (goal: ReturnType<typeof monthlyInput>, id: string, editing: boolean) => {
+    const client = await db.connect()
+    try {
+      await client.query('BEGIN')
+      // Serialize hierarchy changes so concurrent reparenting cannot introduce a cycle.
+      await client.query('LOCK TABLE monthly_goals IN SHARE ROW EXCLUSIVE MODE')
+      if (goal.parentSubgoalId !== null) {
+        const parent = (await client.query(`SELECT parent_id,to_char(month,'YYYY-MM') AS month FROM monthly_goals WHERE id=$1`, [goal.parentSubgoalId])).rows[0]
+        if (!parent) throw new Error('Родительская подцель не найдена.')
+        if (parent.parent_id !== goal.parentId || parent.month !== goal.month)
+          throw new Error('Родительская подцель должна относиться к той же большой цели и месяцу.')
+        if (editing) {
+          const cycle = await client.query(`WITH RECURSIVE branch AS (
+            SELECT id FROM monthly_goals WHERE id=$1
+            UNION SELECT child.id FROM monthly_goals child JOIN branch ON child.parent_subgoal_id=branch.id
+          ) SELECT id FROM branch WHERE id=$2`, [id, goal.parentSubgoalId])
+          if (cycle.rows.length) throw new Error('Нельзя вложить подцель в саму себя или в её дочернюю подцель.')
+        }
+      }
+      const values = [id, goal.parentId, `${goal.month}-01`, goal.title, goal.description, goal.nextStep, goal.completed, goal.parentSubgoalId]
+      const result = await client.query(editing
+        ? `UPDATE monthly_goals SET parent_id=$2,month=$3::date,title=$4,description=$5,next_step=$6,
+           completed=$7,parent_subgoal_id=$8,updated_at=NOW() WHERE id=$1 AND EXISTS(SELECT 1 FROM personal_goals WHERE id=$2)
+           RETURNING ${monthlyFields}`
+        : `INSERT INTO monthly_goals(id,parent_id,month,title,description,next_step,completed,parent_subgoal_id)
+           SELECT $1,id,$3::date,$4,$5,$6,$7,$8 FROM personal_goals WHERE id=$2 RETURNING ${monthlyFields}`, values)
+      await client.query('COMMIT')
+      return result.rows[0]
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally { client.release() }
   }
 
   app.get('/api/monthly-goals', async (req, res) => {
@@ -136,27 +171,17 @@ export function createPersonalApi(db: DB) {
   })
   app.post('/api/monthly-goals', async (req, res) => {
     const goal = monthlyInput(req.body)
-    const result = await db.query(
-      `INSERT INTO monthly_goals(id,parent_id,month,title,description,next_step,completed)
-       SELECT $1,id,$3::date,$4,$5,$6,$7 FROM personal_goals WHERE id=$2
-       RETURNING ${monthlyFields}`,
-      [randomUUID(), goal.parentId, `${goal.month}-01`, goal.title, goal.description, goal.nextStep, goal.completed]
-    )
-    if (!result.rows.length) { res.status(404).json({ error: 'Большая цель не найдена.' }); return }
-    res.status(201).json(result.rows[0])
+    const row = await saveMonthlyGoal(goal, randomUUID(), false)
+    if (!row) { res.status(404).json({ error: 'Большая цель не найдена.' }); return }
+    res.status(201).json(row)
   })
   app.put('/api/monthly-goals/:id', async (req, res) => {
     const id = String(req.params.id)
     if (!idValid(id)) throw new Error('Некорректный ID подцели.')
     const goal = monthlyInput(req.body)
-    const result = await db.query(
-      `UPDATE monthly_goals SET parent_id=$2,month=$3::date,title=$4,description=$5,next_step=$6,
-       completed=$7,updated_at=NOW() WHERE id=$1 AND EXISTS(SELECT 1 FROM personal_goals WHERE id=$2)
-       RETURNING ${monthlyFields}`,
-      [id, goal.parentId, `${goal.month}-01`, goal.title, goal.description, goal.nextStep, goal.completed]
-    )
-    if (!result.rows.length) { res.status(404).json({ error: 'Подцель или большая цель не найдена.' }); return }
-    res.json(result.rows[0])
+    const row = await saveMonthlyGoal(goal, id, true)
+    if (!row) { res.status(404).json({ error: 'Подцель или большая цель не найдена.' }); return }
+    res.json(row)
   })
   app.delete('/api/monthly-goals/:id', async (req, res) => {
     const id = String(req.params.id)

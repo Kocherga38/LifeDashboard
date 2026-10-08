@@ -48,6 +48,7 @@
 .monthly-goal-editor .form-actions { margin: 0; }
 .monthly-goals-list { display: grid; gap: 10px; }
 .monthly-goal-card { display: flex; align-items: start; gap: 15px; padding: 16px 18px; border: 1px solid #405747; border-radius: 14px; background: #283a2e; }
+.monthly-goal-card.is-nested { border-left: 3px solid #779868; background: #24362b; }
 .workspace .monthly-goal-check { flex: 0 0 24px; width: 24px; height: 24px; padding: 0; border: 1px solid #8aa878; border-radius: 7px; color: #18311f; background: transparent; font-size: 15px; line-height: 1; }
 .workspace .monthly-goal-check[aria-pressed="true"] { background: #b9db90; }
 .workspace .monthly-goal-check:hover:not(:disabled) { background: #445c3c; }
@@ -57,7 +58,9 @@
 .monthly-goal-body p { margin: 0 0 7px; color: #b8cbb7; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
 .monthly-goal-body small { display: block; color: #b4d29f; font-size: 11px; overflow-wrap: anywhere; }
 .monthly-goal-card.is-complete .monthly-goal-body h3 { color: #9fb19e; text-decoration: line-through; }
-.monthly-goal-actions { display: flex; gap: 12px; align-items: center; }
+.monthly-goal-actions { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.monthly-goal-actions button { white-space: nowrap; }
+.monthly-goal-parent { display: block; overflow-wrap: break-word; }
 .monthly-goal-actions button { padding: 4px 0; font-size: 11px; }
 .monthly-goals-empty { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 16px; border: 1px dashed #49644a; border-radius: 14px; color: #a8bca8; font-size: 12px; }
 .monthly-goals-progress { margin: 12px 1px 0; color: #9eb397; font-size: 11px; }

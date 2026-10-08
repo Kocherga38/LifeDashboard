@@ -13,6 +13,7 @@ export type PersonalGoal = {
 export type MonthlyGoal = {
   id: string
   parentId: string
+  parentSubgoalId: string | null
   month: string
   title: string
   description: string
@@ -20,6 +21,41 @@ export type MonthlyGoal = {
   completed: boolean
   createdAt: string
   updatedAt: string
+}
+
+export function monthlyGoalRows(goals: MonthlyGoal[]) {
+  const ids = new Set(goals.map((goal) => goal.id))
+  const children = new Map<string | null, MonthlyGoal[]>()
+  for (const goal of goals) {
+    const parent = goal.parentSubgoalId && ids.has(goal.parentSubgoalId) ? goal.parentSubgoalId : null
+    children.set(parent, [...(children.get(parent) ?? []), goal])
+  }
+  const rows: { goal: MonthlyGoal; depth: number }[] = []
+  const visited = new Set<string>()
+  const visit = (goal: MonthlyGoal, depth: number) => {
+    if (visited.has(goal.id)) return
+    visited.add(goal.id)
+    rows.push({ goal, depth })
+    for (const child of children.get(goal.id) ?? []) visit(child, depth + 1)
+  }
+  for (const goal of children.get(null) ?? []) visit(goal, 0)
+  return rows
+}
+
+export function monthlyGoalDescendants(goals: MonthlyGoal[], id: string) {
+  const found = new Set<string>([id])
+  const pending = [id]
+  while (pending.length) {
+    const parent = pending.pop()
+    for (const goal of goals) {
+      if (goal.parentSubgoalId === parent && !found.has(goal.id)) {
+        found.add(goal.id)
+        pending.push(goal.id)
+      }
+    }
+  }
+  found.delete(id)
+  return found
 }
 
 export const monthLabel = (month: string) =>

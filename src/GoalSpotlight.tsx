@@ -1,5 +1,5 @@
 import type { MonthlyGoal, PersonalGoal } from './goalTypes'
-import { goalDeadline, monthLabel, visibleGoals } from './goalTypes'
+import { goalDeadline, monthLabel, visibleGoals, monthlyGoalRows } from './goalTypes'
 
 export default function GoalSpotlight({ goals, monthlyGoals, month, reference, onNavigate, weekly = false }: {
   goals: PersonalGoal[]
@@ -10,6 +10,7 @@ export default function GoalSpotlight({ goals, monthlyGoals, month, reference, o
   weekly?: boolean
 }) {
   const shown = visibleGoals(goals)
+  const monthlyRows = monthlyGoalRows(monthlyGoals)
   return <section className="goal-spotlight" aria-labelledby={weekly ? 'weekly-goals-title' : 'today-goals-title'}>
     <div className="goal-spotlight-heading">
       <div><span className="eyebrow">{weekly ? 'ДЕРЖАТЬ КУРС' : 'ПЕРЕД ГЛАЗАМИ'}</span><h2 id={weekly ? 'weekly-goals-title' : 'today-goals-title'}>Мои цели</h2></div>
@@ -17,8 +18,8 @@ export default function GoalSpotlight({ goals, monthlyGoals, month, reference, o
     </div>
     {!!monthlyGoals.length && <div className="goal-spotlight-month">
       <span>ПЛАН НА {monthLabel(month).toLocaleUpperCase('ru-RU')}</span>
-      <div>{monthlyGoals.slice(0, 3).map((goal) => <div key={goal.id} className={goal.completed ? 'done' : ''}>
-        <span aria-hidden="true">{goal.completed ? '✓' : '○'}</span><strong>{goal.title}</strong>
+      <div>{monthlyRows.slice(0, 3).map(({ goal, depth }) => <div key={goal.id} className={goal.completed ? 'done' : ''}>
+        <span aria-hidden="true">{depth ? '↳ ' : ''}{goal.completed ? '✓' : '○'}</span><strong>{goal.title}</strong>
       </div>)}</div>
       {monthlyGoals.length > 3 && <button className="link-button" onClick={onNavigate}>Ещё {monthlyGoals.length - 3} →</button>}
     </div>}

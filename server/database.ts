@@ -183,6 +183,17 @@ export async function migrate(db: DB) {
       )`
     )
     await client.query(`CREATE INDEX IF NOT EXISTS monthly_goals_month_idx ON monthly_goals(month,parent_id)`)
+    await client.query(`ALTER TABLE monthly_goals ADD COLUMN IF NOT EXISTS parent_subgoal_id UUID`)
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS monthly_goals_branch_key ON monthly_goals(id,parent_id,month)`)
+    await client.query(`CREATE INDEX IF NOT EXISTS monthly_goals_parent_subgoal_idx ON monthly_goals(parent_subgoal_id)`)
+    await client.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='monthly_goals'::regclass AND conname='monthly_goals_parent_subgoal_fk') THEN
+        ALTER TABLE monthly_goals ADD CONSTRAINT monthly_goals_parent_subgoal_fk
+          FOREIGN KEY(parent_subgoal_id,parent_id,month) REFERENCES monthly_goals(id,parent_id,month)
+          ON UPDATE CASCADE ON DELETE CASCADE;
+        ALTER TABLE monthly_goals ADD CONSTRAINT monthly_goals_not_own_parent CHECK(parent_subgoal_id <> id);
+      END IF;
+    END $$`)
     await client.query(
       `CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY,value JSONB NOT NULL)`
     )
