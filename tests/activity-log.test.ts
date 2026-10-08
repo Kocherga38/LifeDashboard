@@ -92,7 +92,7 @@ test('history keeps full task versions, cascades, snapshots and rolls back with 
     assert.deepEqual(mark.record_key, { habit_id: habit.id, mark_date: '2026-10-08' })
     assert.equal(mark.before_data.habit_id, habit.id)
     const template = (await request('/api/templates', 'POST', { title: 'Квартира', amount: 19000, category: 'Жильё', type: 'expense', templateKind: 'quick' })).body
-    await request('/api/sidebar-order', 'PUT', { order: ['today','weekly','goals','operations','analytics','calendar','notes','diary','flashcards','habits','shifts','weights','sleep','measurements','meals','products','workouts','data'] })
+    await request('/api/sidebar-order', 'PUT', { order: ['today','weekly','goals','operations','analytics','calendar','notes','diary','flashcards','habits','laundry','supplies','shifts','weights','sleep','measurements','meals','products','workouts','data'] })
     assert.ok((await db.query(`SELECT * FROM activity_log WHERE table_name='app_settings' AND record_key->>'key'='sidebar-order'`)).rows.length)
     assert.equal((await request('/api/activity', 'POST', { action: 'navigate', section: 'calendar' })).status, 204)
     assert.equal((await request('/api/activity', 'POST', { action: 'delete', section: 'calendar' })).status, 400)

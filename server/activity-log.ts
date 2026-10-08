@@ -6,6 +6,7 @@ import { validDate } from '../shared/journals.js'
 export const dataTables = [
   'expenses', 'operation_categories', 'operation_templates', 'budgets', 'journal_entries',
   'sleep_entries', 'tasks', 'task_occurrences', 'note_folders', 'notes', 'diary_entries',
+  'laundry_items', 'laundry_washes', 'supply_items', 'supply_purchases',
   'flashcards', 'habits', 'habit_marks', 'personal_goals', 'monthly_goals', 'app_settings',
   'calendar_events', 'planned_shifts', 'meal_notes', 'speaking_sessions', 'weekly_reflections'
 ] as const
@@ -92,7 +93,7 @@ export async function exportData(db: DB) {
 }
 
 const sections = new Set(['today','weekly','goals','operations','analytics','calendar','notes','diary',
-  'flashcards','habits','shifts','weights','sleep','measurements','meals','products','workouts','data'])
+  'flashcards','habits','laundry','supplies','shifts','weights','sleep','measurements','meals','products','workouts','data'])
 
 export function createActivityApi(db: DB) {
   const app = express.Router()

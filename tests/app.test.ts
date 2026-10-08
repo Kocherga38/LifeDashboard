@@ -218,7 +218,7 @@ test('Миграции, API, выгрузка и сохранение после
     assert.equal((await request('/api/tasks?from=2026-09-14&to=bad')).status, 400)
     const defaultSidebar = await request('/api/sidebar-order')
     assert.equal(defaultSidebar.body.order[0], 'today')
-    assert.equal(defaultSidebar.body.order.length, 18)
+    assert.equal(defaultSidebar.body.order.length, 20)
     assert.ok(defaultSidebar.body.order.includes('sleep'))
     assert.ok(defaultSidebar.body.order.includes('goals'))
     const reversedSidebar = [...defaultSidebar.body.order].reverse()

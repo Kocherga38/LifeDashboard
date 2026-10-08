@@ -12,6 +12,7 @@ const actions: Record<string, string> = {
   navigate: 'Открыт раздел', export: 'Выгрузка данных'
 }
 const tables: Record<string, string> = {
+  laundry_items: 'Вещь', laundry_washes: 'Стирка', supply_items: 'Запас', supply_purchases: 'Покупка запаса',
   expenses: 'Операция', operation_categories: 'Категория', operation_templates: 'Шаблон операции',
   budgets: 'Бюджет', journal_entries: 'Журнал', sleep_entries: 'Сон', tasks: 'Задача',
   task_occurrences: 'Повторение задачи', note_folders: 'Папка заметок', notes: 'Заметка',
@@ -23,7 +24,7 @@ const tables: Record<string, string> = {
 const sections: Record<string, string> = {
   today: 'Сегодня', weekly: 'Обзор недели', goals: 'Цели', operations: 'Операции', analytics: 'Аналитика',
   calendar: 'Календарь', notes: 'Заметки', diary: 'Дневник', flashcards: 'Карточки', habits: 'Трекер',
-  shifts: 'Смены', weights: 'Вес', sleep: 'Сон', measurements: 'Замеры', meals: 'Питание',
+  laundry: 'Стирка', supplies: 'Запасы', shifts: 'Смены', weights: 'Вес', sleep: 'Сон', measurements: 'Замеры', meals: 'Питание',
   products: 'Продукты', workouts: 'Тренировки', data: 'Данные'
 }
 

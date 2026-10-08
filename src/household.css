@@ -1,0 +1,42 @@
+.household-page > .card, .household-grid { margin-bottom: 22px; }
+.household-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,310px),1fr)); gap: 16px; }
+.household-item { padding: 22px; min-width: 0; }
+.household-item h2 { margin: 0; font-size: 20px; }
+.household-item p, .household-history-row strong, .household-select strong { overflow-wrap: break-word; word-break: normal; }
+.household-item-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.household-select { display: flex; align-items: center; gap: 10px; }
+.household-select input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; }
+.household-photo { width: 56px; height: 64px; object-fit: cover; border-radius: 9px; }
+.household-photo-editor { display: flex; align-items: center; gap: 12px; margin: 15px 0; }
+.household-photo-editor img { width: 90px; height: 110px; object-fit: cover; border-radius: 10px; }
+.household-actions, .household-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.household-actions { margin-top: 12px; }
+.household-actions button { font-size: 12px; padding: 9px 12px; }
+.household-meta, .household-history-row small { display: block; margin-top: 6px; }
+.household-reminder { color: #e0c18a; font-size: 12px; }
+.household-toolbar { margin-bottom: 20px; align-items: end; }
+.household-toolbar h2 { margin: 0 auto 0 0; align-self: center; }
+.household-toolbar label { display: grid; gap: 6px; min-width: min(100%,190px); }
+.household-toolbar input[type="month"] { width: auto; }
+.household-editor { padding: 25px; }
+.household-editor h2 { margin-top: 0; }
+.household-editor fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.household-editor label { display: grid; gap: 7px; margin-bottom: 14px; }
+.household-editor label.household-select { display: flex; }
+.household-editor label > input, .household-editor label > select { width: 100%; }
+.household-editor label.household-select > input { width: 18px; }
+.household-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 18px; }
+.household-calendar, .household-history { padding: 24px; }
+.household-scroll { overflow: auto; max-height: 560px; }
+.household-calendar-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
+.household-calendar-table th, .household-calendar-table td { padding: 5px; text-align: center; }
+.household-calendar-table th:first-child { position: sticky; left: 0; background: var(--paper); z-index: 1; width: 180px; max-width: 180px; min-width: 150px; white-space: normal; overflow-wrap: break-word; text-align: left; font-size: 12px; }
+.household-calendar-table .wash-mark { width: 27px; height: 29px; padding: 0; }
+.household-calendar-table .wash-mark.done { background: var(--accent); color: #17251b; }
+.household-history-row { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.household-history-row > div:first-child { min-width: 0; flex: 1; }
+.household-history-row small { white-space: pre-wrap; overflow-wrap: break-word; }
+.household-history-row .household-actions { margin-top: 0; align-content: center; }
+.household-summary { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; padding: 25px; }
+.household-summary strong { display: block; font-size: 27px; margin-top: 9px; letter-spacing: -.03em; }
+@media(max-width:700px) { .household-fields, .household-summary { grid-template-columns: 1fr; } .household-history-row { flex-direction: column; gap: 10px; } .household-page header { flex-wrap: wrap; gap: 15px; } .household-calendar,.household-history,.household-editor { padding: 16px; } }

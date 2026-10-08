@@ -5,6 +5,7 @@ import type { DB } from './database.js'
 import { isKind, validateEntry, validDate, nutrients } from '../shared/journals.js'
 import { defaultOperationCategories } from '../shared/operationCategories.js'
 import { createActivityApi, exportData, recordExport } from './activity-log.js'
+import { createHouseholdApi } from './household-api.js'
 
 const operationFields = `id,title,amount,category,type,subcategory,counterparty,note,to_char(operation_date,'YYYY-MM-DD') AS date`
 const budgetFields = `id,category,amount,to_char(month,'YYYY-MM') AS month`
@@ -19,7 +20,7 @@ const amountValid = (n: unknown): n is number =>
   typeof n === 'number' && Number.isFinite(n) && n >= 0.01 && n <= 999999999.99
 const sidebarSections = [
   'today','weekly','goals','operations','analytics','calendar','notes','diary','flashcards',
-  'habits','shifts','weights','sleep','measurements','meals','products','workouts','data'
+  'habits','laundry','supplies','shifts','weights','sleep','measurements','meals','products','workouts','data'
 ]
 const sidebarSectionSet = new Set(sidebarSections)
 
@@ -158,6 +159,7 @@ export function createApi(db: DB) {
   })
   app.use(express.json({ limit: '2mb' }))
   app.use(createActivityApi(db))
+  app.use(createHouseholdApi(db))
   app.get('/api/operation-categories', async (_req, res) => {
     res.json((await db.query(`SELECT id,name,type FROM operation_categories ORDER BY type,name,id`)).rows)
   })

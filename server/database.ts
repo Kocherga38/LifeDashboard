@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { userInfo } from 'node:os'
 import { installActivityLog } from './activity-log.js'
+import { migrateHousehold } from './household-schema.js'
 
 export interface Queryable {
   query(
@@ -196,6 +197,7 @@ export async function migrate(db: DB) {
     await client.query(`CREATE TABLE IF NOT EXISTS weekly_reflections(week_start DATE PRIMARY KEY,wins TEXT NOT NULL DEFAULT '',friction TEXT NOT NULL DEFAULT '',next_step TEXT NOT NULL DEFAULT '')`)
     await client.query('DROP TABLE IF EXISTS imported_rows')
     await client.query('DROP TABLE IF EXISTS import_batches')
+    await migrateHousehold(client)
     await installActivityLog(client)
     await client.query('COMMIT')
   } catch (e) {
