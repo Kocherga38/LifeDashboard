@@ -1,6 +1,17 @@
 import { DIARY_IMAGE_TYPES, MAX_DIARY_IMAGE_BYTES } from '../shared/diary'
 import type { DiaryImage } from '../shared/diary'
 
+function imageId(): string {
+  // HTTP on a home-network IP is not a secure context: randomUUID is unavailable.
+  // getRandomValues is available there and still gives random UUID v4 identifiers.
+  if (typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID()
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
 function readDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -64,5 +75,5 @@ export async function prepareDiaryImage(file: File): Promise<DiaryImage> {
   if (file.size > MAX_DIARY_IMAGE_BYTES || Math.max(image.naturalWidth, image.naturalHeight) > 2048) {
     dataUrl = await readDataUrl(await compressImage(image))
   }
-  return { id: crypto.randomUUID(), name: (file.name || 'Из буфера обмена').slice(0, 200), dataUrl }
+  return { id: imageId(), name: (file.name || 'Из буфера обмена').slice(0, 200), dataUrl }
 }

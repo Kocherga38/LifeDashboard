@@ -43,7 +43,8 @@ try {
     '--import',
     'tsx',
     'server/index.ts',
-    ...(process.argv.includes('--built') ? ['--built'] : [])
+    ...(process.argv.includes('--built') ? ['--built'] : []),
+    ...(process.argv.includes('--lan') ? ['--lan'] : [])
   ]
   const child = spawn(process.execPath, args, { cwd: root, stdio: 'inherit' })
   child.once('error', (e) => {

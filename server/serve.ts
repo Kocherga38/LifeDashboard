@@ -5,6 +5,7 @@ import { readFile, realpath } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
+import { networkInterfaces } from 'node:os'
 import { createApi } from './api.js'
 import { createPersonalApi } from './personal-api.js'
 import { createPlanningApi } from './planning-api.js'
@@ -16,10 +17,26 @@ function openBrowser(url: string) {
   child.on('error', () => {})
   child.unref()
 }
+export function lanUrls(port: number, interfaces?: ReturnType<typeof networkInterfaces>) {
+  // Interface discovery can be unavailable in restricted environments; listening still works.
+  if (!interfaces) {
+    try { interfaces = networkInterfaces() } catch { return [] }
+  }
+  const addresses = Object.values(interfaces).flatMap((entries) => entries ?? [])
+    .filter((entry) => entry.family === 'IPv4' && !entry.internal).map((entry) => entry.address)
+  return [...new Set(addresses)].map((address) => `http://${address}:${port}`)
+}
+function printAddresses(port: number, lan: boolean) {
+  if (!lan) return
+  const addresses = lanUrls(port)
+  console.log(`Доступ с телефона (та же Wi-Fi сеть):\n${addresses.length ? addresses.join('\n') : `http://<IP компьютера>:${port}`}\n`)
+}
 export async function startServer(
   db: DB & { end?: () => Promise<void> },
-  options: { dev: boolean; open?: boolean; port?: number }
+  options: { dev: boolean; open?: boolean; port?: number; lan?: boolean }
 ) {
+  const lan = options.lan ?? process.env.TRELLIS_LAN === '1'
+  const host = lan ? '0.0.0.0' : '127.0.0.1'
   const root = await realpath(fileURLToPath(new URL('..', import.meta.url)))
   const identity = createHash('sha256')
     .update(
@@ -38,7 +55,16 @@ export async function startServer(
   const server = createServer(app)
   app.use((req, res, next) => {
     if (req.path === '/api/health') {
-      res.json({ app: 'trellis', identity, version: '1.0.0' })
+      res.json({ app: 'trellis', identity, version: '1.0.0', lan })
+      return
+    }
+    next()
+  })
+  // This must cover all routers, including diary and calendar writes.
+  app.use((req, res, next) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.headers.origin &&
+      req.headers.origin !== `${req.protocol}://${req.headers.host}`) {
+      res.status(403).json({ error: 'Запрос с другого сайта отклонён.' })
       return
     }
     next()
@@ -48,20 +74,28 @@ export async function startServer(
   app.use(createApi(db))
   let port = preferred
   for (; port < preferred + 20; port++) {
+    type Health = { app?: string; identity?: string; lan?: boolean }
+    let existing: Health | null = null
     try {
       const r = await fetch(`http://127.0.0.1:${port}/api/health`, {
         signal: AbortSignal.timeout(350)
       })
-      const body = (await r.json().catch(() => null)) as { app?: string; identity?: string } | null
-      if (body?.app === 'trellis' && body.identity === identity) {
-        const url = `http://localhost:${port}`
-        console.log(`Trellis уже работает: ${url}`)
-        if (options.open) openBrowser(url)
-        await db.end?.()
-        return null
-      }
+      existing = await r.json().catch(() => null) as Health | null
     } catch {
       /* Проверяем порт фактическим listen. */
+    }
+    if (existing?.app === 'trellis' && existing.identity === identity) {
+      // Never claim LAN access while reusing a loopback-only process (or vice versa).
+      if (!!existing.lan !== lan) {
+        await db.end?.()
+        throw new Error(`Trellis уже запущен ${existing.lan ? 'с доступом по сети' : 'только на этом Mac'}. Останови его через Control + C и запусти заново${lan ? ' командой npm start -- --lan' : ' командой npm start'}.`)
+      }
+      const url = `http://localhost:${port}`
+      console.log(`Trellis уже работает: ${url}`)
+      printAddresses(port, lan)
+      if (options.open) openBrowser(url)
+      await db.end?.()
+      return null
     }
     const listening = await new Promise<boolean>((resolve, reject) => {
       const onError = (e: NodeJS.ErrnoException) => {
@@ -74,7 +108,7 @@ export async function startServer(
       }
       server.once('error', onError)
       server.once('listening', onListen)
-      server.listen(port, '127.0.0.1')
+      server.listen(port, host)
     })
     if (listening) break
   }
@@ -85,7 +119,7 @@ export async function startServer(
     const vite = await createViteServer({
       root,
       configFile: path.join(root, 'vite.config.ts'),
-      server: { middlewareMode: true, ws: { server } },
+      server: { host, middlewareMode: true, ws: { server } },
       appType: 'custom'
     })
     closeVite = () => vite.close()
@@ -108,11 +142,14 @@ export async function startServer(
   }
   const url = `http://localhost:${port}`
   console.log(`\nTrellis запущен: ${url}\nИнтерфейс и API работают вместе. Остановка: Control + C.\n`)
+  printAddresses(port, lan)
   if (options.open) openBrowser(url)
   let closing = false
   const close = async () => {
     if (closing) return
     closing = true
+    process.removeListener('SIGINT', stop)
+    process.removeListener('SIGTERM', stop)
     server.closeAllConnections()
     await closeVite?.()
     await new Promise<void>((r) => server.close(() => r()))
@@ -121,5 +158,5 @@ export async function startServer(
   const stop = () => void close().then(() => process.exit(0))
   process.once('SIGINT', stop)
   process.once('SIGTERM', stop)
-  return { url, server, close }
+  return { url, lanUrls: lan ? lanUrls(port) : [], server, close }
 }

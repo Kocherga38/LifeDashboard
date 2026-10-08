@@ -103,3 +103,20 @@ test('Failed encoders stop after bounded compression attempts', async () => {
     assert.ok(calls < 40)
   })
 })
+
+test('Photos work over home-network HTTP when crypto.randomUUID is unavailable', async () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'crypto')!
+  const secureCrypto = globalThis.crypto
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: {
+    getRandomValues: secureCrypto.getRandomValues.bind(secureCrypto)
+  } })
+  try {
+    await withCanvas(() => { throw new Error('Unexpected compression') }, async () => {
+      const file = new File(['small'], 'phone-photo.png', { type: 'image/png' })
+      const first = await prepareDiaryImage(file), second = await prepareDiaryImage(file)
+      assert.match(first.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      assert.notEqual(first.id, second.id)
+      assert.equal(validateDiaryImages([first,second]).length,2)
+    })
+  } finally { Object.defineProperty(globalThis, 'crypto', original) }
+})

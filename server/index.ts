@@ -6,6 +6,7 @@ try {
   await migrate(db)
   await startServer(db, {
     dev: !process.argv.includes('--built'),
+    lan: process.argv.includes('--lan') || process.env.TRELLIS_LAN === '1',
     open: process.env.NO_OPEN !== '1'
   })
 } catch (error) {
