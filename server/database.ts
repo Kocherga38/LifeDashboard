@@ -106,6 +106,7 @@ export async function migrate(db: DB) {
       `CREATE TABLE IF NOT EXISTS journal_entries(id UUID PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('shifts','weights','measurements','products','meals','workouts')),data JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
     )
     await client.query(`CREATE INDEX IF NOT EXISTS journal_kind_idx ON journal_entries(kind)`)
+    await client.query(`CREATE TABLE IF NOT EXISTS meal_templates(id UUID PRIMARY KEY,title VARCHAR(160) NOT NULL,items JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
     await client.query(
       `CREATE TABLE IF NOT EXISTS sleep_entries(
         id UUID PRIMARY KEY,
