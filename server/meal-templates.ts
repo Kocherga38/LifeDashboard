@@ -23,6 +23,7 @@ const uuid = (value: string) => /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.t
 
 export function createMealTemplatesApi(db: DB) {
   const app = express.Router()
+  app.use(express.json({ limit: '2mb' }))
   app.get('/api/meal-templates', async (_req, res) => {
     const rows = await db.query('SELECT id,title,items FROM meal_templates ORDER BY title,id')
     res.json(rows.rows)
@@ -51,7 +52,7 @@ export function createMealTemplatesApi(db: DB) {
     const id = String(req.params.id)
     const { date, meal, time = '', note = '', items } = req.body ?? {}
     if (!uuid(id) || !validDate(date) || !['Завтрак','Обед','Ужин','Перекус'].includes(meal) ||
-        (time && (typeof time !== 'string' || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time))) ||
+        (time && (typeof time !== 'string' || !/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(time))) ||
         typeof note !== 'string' || note.length > 5000)
       throw new Error('Проверь дату и приём пищи.')
     const client = await db.connect()
