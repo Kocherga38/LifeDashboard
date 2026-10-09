@@ -534,6 +534,7 @@ export default function Calendar() {
       {loading ? (
         <div className="calendar-loading">Загружаю задачи…</div>
       ) : (
+        <div className="calendar-scroll" role="region" aria-label="Дни календаря" tabIndex={0}>
         <section className={`calendar-grid ${view}`}>
           {view === 'month' && weekdays.map((day) => <div className="calendar-weekday" key={day}>{day}</div>)}
           {days.map((day, index) => {
@@ -662,6 +663,7 @@ export default function Calendar() {
             )
           })}
         </section>
+        </div>
       )}
     </main>
   )

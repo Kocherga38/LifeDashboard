@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { CSSProperties, FormEvent } from 'react'
 import { api, today } from './api'
 import type { MonthlyGoal, PersonalGoal } from './goalTypes'
 import { monthLabel, shiftMonth, monthlyGoalRows, monthlyGoalDescendants } from './goalTypes'
@@ -122,7 +122,7 @@ export default function MonthlyGoals({ parents, refreshKey, initialMonth }: { pa
       <div className="form-actions"><button disabled={busy || formLoading}>{busy ? 'Сохраняю…' : editing ? 'Сохранить' : 'Добавить в месяц'}</button><button type="button" className="secondary" onClick={close}>Отмена</button></div>
     </form>}
     {loading ? <p className="muted">Загружаю план месяца…</p> : items.length ? <div className="monthly-goals-list">
-      {rows.map(({ goal, depth }) => <article className={`monthly-goal-card ${depth ? 'is-nested' : ''} ${goal.completed ? 'is-complete' : ''}`} style={{ marginLeft: Math.min(depth, 4) * 14 }} key={goal.id}>
+      {rows.map(({ goal, depth }) => <article className={`monthly-goal-card ${depth ? 'is-nested' : ''} ${goal.completed ? 'is-complete' : ''}`} style={{ '--goal-depth': Math.min(depth, 4) } as CSSProperties} key={goal.id}>
         <button className="monthly-goal-check" disabled={busy} aria-label={goal.completed ? `Вернуть «${goal.title}» в работу` : `Завершить «${goal.title}»`} aria-pressed={goal.completed} onClick={() => void toggle(goal)}>{goal.completed ? '✓' : ''}</button>
         <div className="monthly-goal-body"><span className="monthly-goal-parent">{depth ? '↳ ' : '↗ '}{items.find((parent) => parent.id === goal.parentSubgoalId)?.title ?? parents.find((parent) => parent.id === goal.parentId)?.title ?? 'Большая цель'}</span><h3>{goal.title}</h3>{goal.description && <p>{goal.description}</p>}{goal.nextStep && !goal.completed && <small>Дальше: {goal.nextStep}</small>}</div>
         <div className="monthly-goal-actions"><button className="link-button" disabled={busy} onClick={() => open(undefined, goal)}>+ Подцель</button><button className="link-button" disabled={busy} onClick={() => open(goal)}>Изменить</button><button className="goal-delete" disabled={busy} onClick={() => void remove(goal)}>Удалить</button></div>

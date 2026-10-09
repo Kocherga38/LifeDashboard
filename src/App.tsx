@@ -62,6 +62,7 @@ export default function App() {
   const [goalMonth, setGoalMonth] = useState(() => today().slice(0, 7))
   const [orderedTabs, setOrderedTabs] = useState(tabs)
   const [ordering, setOrdering] = useState(false)
+  const [navigationOpen, setNavigationOpen] = useState(false)
   const [draggedTab, setDraggedTab] = useState<Tab | null>(null)
   const [orderError, setOrderError] = useState('')
   const lastRecordedTab = useRef<Tab | null>(null)
@@ -111,7 +112,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside className={`sidebar ${navigationOpen ? 'navigation-open' : ''}`}>
         <div className="brand">
           <span className="brand-symbol" aria-hidden="true">
             <svg viewBox="0 0 48 48" fill="none">
@@ -121,6 +122,14 @@ export default function App() {
           </span>
           <span className="brand-copy"><strong>Trellis</strong><small>Личная система</small></span>
         </div>
+        <button
+          className="sidebar-menu-toggle"
+          aria-expanded={navigationOpen}
+          aria-controls="app-navigation"
+          onClick={() => setNavigationOpen((value) => !value)}
+        >
+          {navigationOpen ? 'Закрыть разделы' : `Разделы · ${tabs.find((item) => item.key === tab)?.label}`}
+        </button>
         <div className="sidebar-section-label">ПРОСТРАНСТВО <span>01 / {tabs.length}</span></div>
         <button
           className={`sidebar-order-toggle ${ordering ? 'active' : ''}`}
@@ -129,7 +138,7 @@ export default function App() {
           {ordering ? 'Готово' : 'Настроить порядок'}
         </button>
         {orderError && <small className="sidebar-order-error" title={orderError}>Порядок не сохранился</small>}
-        <nav aria-label="Разделы" className={ordering ? 'ordering' : ''}>
+        <nav id="app-navigation" aria-label="Разделы" className={ordering ? 'ordering' : ''}>
           {orderedTabs.map((item) => (
             <div
               key={item.key}
@@ -149,7 +158,7 @@ export default function App() {
               <button
                 className={tab === item.key ? 'selected' : ''}
                 aria-current={tab === item.key ? 'page' : undefined}
-                onClick={() => { if (item.key === 'goals') setGoalMonth(today().slice(0, 7)); setTab(item.key) }}
+                onClick={() => { if (item.key === 'goals') setGoalMonth(today().slice(0, 7)); setTab(item.key); setNavigationOpen(false) }}
               >
                 <span>{item.icon}</span>
                 {item.label}

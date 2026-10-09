@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import './trellis.css'
 import './goals.css'
+import './responsive.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

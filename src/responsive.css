@@ -1,0 +1,185 @@
+/* Browser zoom reduces the CSS viewport. Reflow from the space available to
+   the workspace, including when the desktop sidebar is still visible. */
+.workspace {
+  flex: 1 1 0;
+  container: workspace / inline-size;
+}
+
+.workspace main { width: 100%; min-width: 0; }
+.workspace :is(header, header > *, label, .period, .form-grid > *, .journal-form > *,
+  .notes-layout > *, .diary-layout > *, .today-grid > *, .review-columns > *,
+  .planning-row > div, .household-select, .folder-open) { min-width: 0; }
+.workspace :is(h1, h2, h3, p, label, button, .badge, .download-button,
+  .note-item, .review-answer, .folder-open) { overflow-wrap: break-word; }
+.workspace :is(input, select, textarea, button, .download-button) { max-width: 100%; }
+.workspace :is(header, .section-heading, .period, .form-actions, .editor-actions,
+  .type-switch, .calendar-view-switch, .calendar-nav, .overview-block-head,
+  .goal-spotlight-heading, .goal-card-top, .entry-head, .flash-row,
+  .household-item-heading, .household-photo-editor, .sleep-input-line,
+  .sleep-actions, .hero-topline, .big-progress, .summary-lines p) { flex-wrap: wrap; }
+.workspace .period input { min-width: 0; }
+.workspace .period > label { flex: 1 1 10rem; }
+.workspace :is(.badge, .download-button) { white-space: normal; }
+.workspace :is(.today-task, .habit-today, .review-task) > :is(input, .habit-check) { flex-shrink: 0; }
+.workspace :is(.today-task, .habit-today, .review-task) > :is(span, div) { min-width: 0; }
+.workspace :is(.today-task, .habit-today) > span:last-child { overflow-wrap: break-word; }
+.workspace .template-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); }
+.workspace .review-columns { grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); }
+.workspace .folder-row { max-width: 100%; }
+.workspace .folder-row .mini { flex-shrink: 0; }
+
+/* Two-dimensional data scrolls within its own region, never the whole page. */
+.workspace :is(.table-scroll, .habit-scroll, .household-scroll, .week-habit-table,
+  .calendar-scroll) { min-width: 0; max-width: 100%; overflow: auto; }
+.workspace .calendar-page { overflow: visible; }
+.workspace .calendar-grid.month {
+  min-width: 0;
+  grid-template-columns: repeat(7, minmax(10rem, 1fr));
+  overflow: visible;
+}
+.workspace .calendar-grid.week { grid-template-columns: repeat(7, minmax(11rem, 1fr)); }
+.workspace .calendar-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.workspace .calendar-day-head { flex-wrap: wrap; }
+.workspace .calendar-day-head > div { flex-wrap: wrap; }
+.workspace .task-form-actions { flex-wrap: wrap; }
+.workspace .task-form-actions button { flex: 1 1 5rem; }
+.workspace .task-repeat-badge { max-width: 100%; }
+
+/* Keep subgoal actions below their text instead of competing for its width. */
+.workspace .monthly-goal-card {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px 15px;
+  margin-left: min(calc(var(--goal-depth, 0) * .875rem), 3.5rem);
+}
+.workspace .monthly-goal-actions { grid-column: 2; width: auto; padding-left: 0; }
+.workspace .monthly-goal-body p { overflow-wrap: break-word; }
+
+.sidebar-menu-toggle { display: none; }
+
+/* At high zoom the sidebar becomes a disclosure, leaving room for the page. */
+@media (max-width: 60rem) {
+  .app-shell { display: block; }
+  .app-shell .sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+  }
+  .sidebar .brand { padding: 0; min-width: 0; }
+  .sidebar .sidebar-menu-toggle {
+    display: block;
+    max-width: 15rem;
+    padding: 10px 12px;
+    color: var(--ink);
+    background: #2a3931;
+    border: 1px solid #3c5041;
+    font-size: 13px;
+    text-align: left;
+    overflow-wrap: break-word;
+  }
+  .sidebar .sidebar-section-label, .sidebar .sidebar-footer { display: none; }
+  .sidebar nav, .sidebar .sidebar-order-toggle, .sidebar .sidebar-order-error { display: none; }
+  .sidebar.navigation-open nav {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    max-height: 50vh;
+    max-height: 50dvh;
+    overflow: auto;
+    padding: 4px;
+  }
+  .sidebar.navigation-open .sidebar-order-toggle {
+    display: block;
+    grid-column: 1 / -1;
+    width: fit-content;
+    margin: 0;
+  }
+  .sidebar.navigation-open .sidebar-order-error { display: block; grid-column: 1 / -1; margin: 0; }
+  .sidebar nav button { width: 100%; white-space: normal; font-size: 13px; }
+  .workspace main { padding: 28px 24px 56px; }
+}
+
+@media (max-width: 30rem) {
+  .app-shell .sidebar { grid-template-columns: minmax(0, 1fr); }
+  .sidebar .sidebar-menu-toggle { max-width: 100%; width: 100%; }
+  .sidebar.navigation-open nav { grid-template-columns: minmax(0, 1fr); }
+}
+
+@container workspace (max-width: 70rem) {
+  .workspace :is(.columns, .analytics-grid, .budget-list) { grid-template-columns: minmax(0, 1fr); }
+  .workspace :is(.today-grid, .review-metrics, .goal-spotlight-grid, .summary) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .workspace :is(.form-grid, .template-form-grid, .journal-form) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .workspace .notes-layout { grid-template-columns: minmax(0, .7fr) minmax(0, 1fr); }
+  .workspace .note-editor { grid-column: 1 / -1; }
+  .workspace .diary-layout { grid-template-columns: minmax(0, 1fr); }
+  .workspace .diary-form { position: static; }
+  .workspace .monthly-goals-heading { flex-direction: column; align-items: start; }
+  .workspace .hero-main > div:first-child { min-width: 0; }
+  .workspace .hero-bottom { flex-wrap: wrap; gap: 12px 20px; }
+  .workspace .hero-bottom > span { padding: 0; border: 0; flex-wrap: wrap; }
+  .workspace .overview-block-head { align-items: start; }
+}
+
+@container workspace (max-width: 48rem) {
+  .workspace :is(.today-grid, .review-columns, .goal-list, .goal-spotlight-grid,
+    .notes-layout, .goal-form-row, .monthly-form-row, .budget-form) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workspace :is(.overview-block, .note-editor) { grid-column: auto; }
+  .workspace .calendar-toolbar { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .workspace .calendar-range-title { text-align: left; order: -1; }
+  .workspace .calendar-summary { text-align: left; }
+  .workspace .calendar-grid.week { grid-template-columns: minmax(0, 1fr); overflow: visible; }
+  .workspace .calendar-grid.week .calendar-day { min-height: 220px; }
+  .workspace .calendar-grid.week .task-form { margin-top: 10px; }
+  .workspace .calendar-grid.week .add-task-button { margin-top: 10px; }
+  .workspace .sleep-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
+  .workspace .sleep-date { grid-column: 1; }
+  .workspace .sleep-interval { grid-column: 1 / -1; grid-row: 2; }
+  .workspace .sleep-duration { grid-column: 2; grid-row: 1; }
+  .workspace .sleep-actions { grid-column: 1 / -1; }
+  .workspace .nutrient-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace .hero-main { flex-wrap: wrap; }
+  .workspace .hero-progress { display: none; }
+  .workspace .hero-label { letter-spacing: .1em; }
+  .workspace .overview-section-intro > span { display: none; }
+  .workspace .goal-spotlight-empty { flex-wrap: wrap; }
+  .workspace .household-history-row { flex-direction: column; }
+}
+
+@container workspace (max-width: 40rem) {
+  .workspace :is(.form-grid, .template-form-grid, .journal-form, .summary,
+    .review-metrics, .habit-today-grid, .sleep-summary, .sleep-fields,
+    .planning-fields, .planning-metrics, .household-fields, .household-summary,
+    .history-versions) { grid-template-columns: minmax(0, 1fr); }
+  .workspace .habit-toolbar { flex-wrap: wrap; }
+  .workspace .planning-row { flex-wrap: wrap; }
+  .workspace .category-item { grid-template-columns: 10px minmax(0, 1fr) auto; }
+  .workspace .category-item > span:last-child { grid-column: 2 / -1; text-align: left; }
+  .workspace .budget-heading { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .workspace .budget-heading > strong { grid-column: 1 / -1; }
+}
+
+@container workspace (max-width: 32rem) {
+  .workspace main { padding: 24px 12px 48px; }
+  .app-shell .workspace :is(.card, .goal-spotlight, .monthly-goals, .today-hero) { padding: 18px; }
+  .workspace .today-hero h1 { font-size: 32px; }
+  .workspace header h1 { font-size: 30px; }
+  .workspace .hero-label { font-size: 9px; }
+  .workspace .hero-refresh { padding-left: 0; }
+  .workspace .monthly-goal-card { padding: 12px; gap: 10px; margin-left: min(calc(var(--goal-depth, 0) * .375rem), 1.5rem); }
+  .workspace .monthly-goal-actions { grid-column: 1 / -1; }
+  .workspace .monthly-goals-controls button:last-child { margin-left: 0; }
+  .workspace .note-editor textarea { min-height: 280px; }
+  .workspace .nutrient-grid { gap: 12px; }
+}
