@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process'
 import { networkInterfaces } from 'node:os'
 import { createApi } from './api.js'
 import { createPersonalApi } from './personal-api.js'
+import { createMealTemplatesApi } from './meal-templates.js'
 import { createPlanningApi } from './planning-api.js'
 import type { DB } from './database.js'
 
@@ -71,6 +72,7 @@ export async function startServer(
   })
   app.use(createPersonalApi(db))
   app.use(createPlanningApi(db))
+  app.use(createMealTemplatesApi(db))
   app.use(createApi(db))
   let port = preferred
   for (; port < preferred + 20; port++) {
