@@ -4,7 +4,7 @@ export type PersonalGoal = {
   description: string
   nextStep: string
   dueDate: string | null
-  status: 'active' | 'paused' | 'completed'
+  status: 'active' | 'paused' | 'completed' | 'failed'
   pinned: boolean
   createdAt: string
   updatedAt: string
@@ -19,6 +19,7 @@ export type MonthlyGoal = {
   description: string
   nextStep: string
   completed: boolean
+  failed?: boolean
   createdAt: string
   updatedAt: string
 }

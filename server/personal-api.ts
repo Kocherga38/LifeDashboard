@@ -71,7 +71,7 @@ export function createPersonalApi(db: DB) {
       typeof description !== 'string' || description.length > 4000 ||
       typeof nextStep !== 'string' || nextStep.length > 300 ||
       (dueDate !== null && dueDate !== '' && !validDate(dueDate)) ||
-      !['active', 'paused', 'completed'].includes(String(status)) ||
+      !['active', 'paused', 'completed', 'failed'].includes(String(status)) ||
       typeof pinned !== 'boolean'
     ) throw new Error('Проверь название, описание, дату и следующий шаг цели.')
     return { title: title.trim(), description: description.trim(), nextStep: nextStep.trim(), dueDate: dueDate || null, status, pinned }
@@ -113,17 +113,17 @@ export function createPersonalApi(db: DB) {
     res.status(204).end()
   })
 
-  const monthlyFields = `id,parent_id AS "parentId",parent_subgoal_id AS "parentSubgoalId",to_char(month,'YYYY-MM') AS month,title,description,next_step AS "nextStep",completed,created_at AS "createdAt",updated_at AS "updatedAt"`
+  const monthlyFields = `id,parent_id AS "parentId",parent_subgoal_id AS "parentSubgoalId",to_char(month,'YYYY-MM') AS month,title,description,next_step AS "nextStep",completed,failed,created_at AS "createdAt",updated_at AS "updatedAt"`
   const monthlyInput = (body: Record<string, unknown> | undefined) => {
-    const { parentId, parentSubgoalId = null, month, title, description = '', nextStep = '', completed = false } = body ?? {}
+    const { parentId, parentSubgoalId = null, month, title, description = '', nextStep = '', completed = false, failed = false } = body ?? {}
     if (
       typeof parentId !== 'string' || !idValid(parentId) ||
       (parentSubgoalId !== null && (typeof parentSubgoalId !== 'string' || !idValid(parentSubgoalId))) ||
       typeof month !== 'string' || !/^\d{4}-\d{2}$/.test(month) || !validDate(`${month}-01`) ||
       !textValid(title, 160) || typeof description !== 'string' || description.length > 4000 ||
-      typeof nextStep !== 'string' || nextStep.length > 300 || typeof completed !== 'boolean'
+      typeof nextStep !== 'string' || nextStep.length > 300 || typeof completed !== 'boolean' || typeof failed !== 'boolean' || (completed && failed)
     ) throw new Error('Проверь большую цель, месяц и описание подцели.')
-    return { parentId, parentSubgoalId, month, title: title.trim(), description: description.trim(), nextStep: nextStep.trim(), completed }
+    return { parentId, parentSubgoalId, month, title: title.trim(), description: description.trim(), nextStep: nextStep.trim(), completed, failed }
   }
 
   const saveMonthlyGoal = async (goal: ReturnType<typeof monthlyInput>, id: string, editing: boolean) => {
@@ -145,13 +145,13 @@ export function createPersonalApi(db: DB) {
           if (cycle.rows.length) throw new Error('Нельзя вложить подцель в саму себя или в её дочернюю подцель.')
         }
       }
-      const values = [id, goal.parentId, `${goal.month}-01`, goal.title, goal.description, goal.nextStep, goal.completed, goal.parentSubgoalId]
+      const values = [id, goal.parentId, `${goal.month}-01`, goal.title, goal.description, goal.nextStep, goal.completed, goal.parentSubgoalId, goal.failed]
       const result = await client.query(editing
         ? `UPDATE monthly_goals SET parent_id=$2,month=$3::date,title=$4,description=$5,next_step=$6,
-           completed=$7,parent_subgoal_id=$8,updated_at=NOW() WHERE id=$1 AND EXISTS(SELECT 1 FROM personal_goals WHERE id=$2)
+           completed=$7,parent_subgoal_id=$8,failed=$9,updated_at=NOW() WHERE id=$1 AND EXISTS(SELECT 1 FROM personal_goals WHERE id=$2)
            RETURNING ${monthlyFields}`
-        : `INSERT INTO monthly_goals(id,parent_id,month,title,description,next_step,completed,parent_subgoal_id)
-           SELECT $1,id,$3::date,$4,$5,$6,$7,$8 FROM personal_goals WHERE id=$2 RETURNING ${monthlyFields}`, values)
+        : `INSERT INTO monthly_goals(id,parent_id,month,title,description,next_step,completed,parent_subgoal_id,failed)
+           SELECT $1,id,$3::date,$4,$5,$6,$7,$8,$9 FROM personal_goals WHERE id=$2 RETURNING ${monthlyFields}`, values)
       await client.query('COMMIT')
       return result.rows[0]
     } catch (error) {

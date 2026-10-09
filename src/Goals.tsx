@@ -89,7 +89,7 @@ export default function Goals({ initialMonth }: { initialMonth: string }) {
   const inactive = items.filter((goal) => goal.status !== 'active')
   const pinned = visibleGoals(items).length
   const renderGoal = (goal: PersonalGoal) => <article className={`card goal-card ${goal.status !== 'active' ? 'goal-card-inactive' : ''}`} key={goal.id}>
-    <div className="goal-card-top"><span className={`goal-status goal-status-${goal.status}`}><span />{goal.status === 'active' ? 'В РАБОТЕ' : goal.status === 'paused' ? 'ПАУЗА' : 'ЗАВЕРШЕНА'}</span>
+    <div className="goal-card-top"><span className={`goal-status goal-status-${goal.status}`}><span />{goal.status === 'active' ? 'В РАБОТЕ' : goal.status === 'paused' ? 'ПАУЗА' : goal.status === 'failed' ? '✕ НЕ ВЫПОЛНЕНО' : '✓ ЗАВЕРШЕНА'}</span>
       <button className={`goal-pin ${goal.pinned ? 'on' : ''}`} title={goal.pinned ? 'Убрать из сводок' : 'Показывать в сводках'} aria-label={goal.pinned ? `Убрать «${goal.title}» из сводок` : `Показывать «${goal.title}» в сводках`} disabled={busy} onClick={() => void update(goal, { pinned: !goal.pinned })}>{goal.pinned ? '◉ В сводках' : '◎ Не в сводках'}</button>
     </div>
     <h2>{goal.title}</h2>
@@ -98,7 +98,8 @@ export default function Goals({ initialMonth }: { initialMonth: string }) {
     {goal.nextStep && <div className="goal-next"><span>СЛЕДУЮЩИЙ ШАГ</span><p>{goal.nextStep}</p></div>}
     <div className="goal-card-actions">
       <button className="secondary" onClick={() => openEditor(goal)}>Изменить</button>
-      {goal.status === 'active' ? <><button className="secondary" disabled={busy} onClick={() => void update(goal, { status: 'paused' })}>Пауза</button><button className="secondary" disabled={busy} onClick={() => void update(goal, { status: 'completed', pinned: false })}>Завершить</button></> : <button className="secondary" disabled={busy} onClick={() => void update(goal, { status: 'active', pinned: true })}>Вернуть в работу</button>}
+      {goal.status === 'active' ? <><button className="secondary" disabled={busy} onClick={() => void update(goal, { status: 'paused' })}>Пауза</button><button className="secondary" disabled={busy} onClick={() => void update(goal, { status: 'completed', pinned: false })}>✓ Завершить</button></> : <button className="secondary" disabled={busy} onClick={() => void update(goal, { status: 'active', pinned: true })}>Вернуть в работу</button>}
+      {goal.status !== 'failed' && <button className="secondary goal-fail" disabled={busy} onClick={() => void update(goal, { status: 'failed', pinned: false })}>✕ Не выполнено</button>}
       <button className="goal-delete" disabled={busy} onClick={() => void remove(goal)} aria-label={`Удалить «${goal.title}»`}>Удалить</button>
     </div>
   </article>
@@ -116,12 +117,12 @@ export default function Goals({ initialMonth }: { initialMonth: string }) {
         <div className="form-actions"><button disabled={busy}>{busy ? 'Сохраняю…' : editing ? 'Сохранить изменения' : 'Создать цель'}</button><button type="button" className="secondary" onClick={closeEditor}>Отмена</button></div>
       </form>
     </section>}
-    <div className="goal-page-summary"><span><strong>{active.length}</strong> в работе</span><span><strong>{pinned}</strong> перед глазами</span><span><strong>{inactive.filter((goal) => goal.status === 'completed').length}</strong> завершено</span></div>
+    <div className="goal-page-summary"><span><strong>{active.length}</strong> в работе</span><span><strong>{pinned}</strong> перед глазами</span><span><strong>{inactive.filter((goal) => goal.status === 'completed').length}</strong> завершено</span><span><strong>{inactive.filter((goal) => goal.status === 'failed').length}</strong> не выполнено</span></div>
     {loading ? <p className="muted">Загружаю цели…</p> : <>
       <MonthlyGoals parents={items} refreshKey={monthlyRefresh} initialMonth={initialMonth} />
       <div className="goal-archive-heading"><span className="eyebrow">ДАЛЬНИЙ ГОРИЗОНТ</span><h2>Большие цели</h2></div>
       {active.length ? <section className="goal-list" aria-label="Активные цели">{active.map(renderGoal)}</section> : <div className="card goal-empty"><span aria-hidden="true">✳</span><h2>Место для того, что важно</h2><p>Начни с одной цели. Названия и пары строк достаточно — план можно уточнить позже.</p><button onClick={() => openEditor()}>Создать первую цель →</button></div>}
-      {inactive.length > 0 && <section className="goal-archive"><div className="goal-archive-heading"><span className="eyebrow">ИСТОРИЯ</span><h2>На паузе и завершённые</h2></div><div className="goal-list">{inactive.map(renderGoal)}</div></section>}
+      {inactive.length > 0 && <section className="goal-archive"><div className="goal-archive-heading"><span className="eyebrow">ИСТОРИЯ</span><h2>На паузе и закрытые</h2></div><div className="goal-list">{inactive.map(renderGoal)}</div></section>}
     </>}
   </main>
 }

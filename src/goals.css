@@ -128,3 +128,10 @@
   .monthly-goal-card { flex-wrap: wrap; }
   .monthly-goal-actions { width: 100%; padding-left: 39px; }
 }
+
+.workspace .goal-fail, .goal-status-failed, .monthly-goal-body .goal-failed-label { color: #e7a492; }
+.goal-status-failed > span { background: #e7a492; box-shadow: none; }
+.monthly-goal-card.is-failed { border-color: #80594e; }
+.monthly-goal-card.is-failed .monthly-goal-check { color: #e7a492; border-color: #b47a67; }
+.monthly-goal-card.is-failed .monthly-goal-body h3, .goal-spotlight-month > div > div.failed { color: #e7a492; }
+.goal-spotlight-month > div > div.failed > span { color: #e7a492; }

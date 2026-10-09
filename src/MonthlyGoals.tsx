@@ -61,20 +61,20 @@ export default function MonthlyGoals({ parents, refreshKey, initialMonth }: { pa
     try {
       await api(editing ? `/api/monthly-goals/${editing.id}` : '/api/monthly-goals', {
         method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, completed: editing?.completed ?? false })
+        body: JSON.stringify({ ...form, completed: editing?.completed ?? false, failed: editing?.failed ?? false })
       })
       close()
       await reload()
     } catch (e) { setError((e as Error).message) }
     finally { setBusy(false) }
   }
-  const toggle = async (goal: MonthlyGoal) => {
+  const toggle = async (goal: MonthlyGoal, failed = false) => {
     if (busy) return
     setBusy(true); setError('')
     try {
       await api(`/api/monthly-goals/${goal.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...goal, completed: !goal.completed })
+        body: JSON.stringify({ ...goal, completed: failed ? false : !goal.completed, failed: failed ? !goal.failed : false })
       })
       await reload()
     } catch (e) { setError((e as Error).message) }
@@ -122,12 +122,12 @@ export default function MonthlyGoals({ parents, refreshKey, initialMonth }: { pa
       <div className="form-actions"><button disabled={busy || formLoading}>{busy ? 'Сохраняю…' : editing ? 'Сохранить' : 'Добавить в месяц'}</button><button type="button" className="secondary" onClick={close}>Отмена</button></div>
     </form>}
     {loading ? <p className="muted">Загружаю план месяца…</p> : items.length ? <div className="monthly-goals-list">
-      {rows.map(({ goal, depth }) => <article className={`monthly-goal-card ${depth ? 'is-nested' : ''} ${goal.completed ? 'is-complete' : ''}`} style={{ '--goal-depth': Math.min(depth, 4) } as CSSProperties} key={goal.id}>
-        <button className="monthly-goal-check" disabled={busy} aria-label={goal.completed ? `Вернуть «${goal.title}» в работу` : `Завершить «${goal.title}»`} aria-pressed={goal.completed} onClick={() => void toggle(goal)}>{goal.completed ? '✓' : ''}</button>
-        <div className="monthly-goal-body"><span className="monthly-goal-parent">{depth ? '↳ ' : '↗ '}{items.find((parent) => parent.id === goal.parentSubgoalId)?.title ?? parents.find((parent) => parent.id === goal.parentId)?.title ?? 'Большая цель'}</span><h3>{goal.title}</h3>{goal.description && <p>{goal.description}</p>}{goal.nextStep && !goal.completed && <small>Дальше: {goal.nextStep}</small>}</div>
-        <div className="monthly-goal-actions"><button className="link-button" disabled={busy} onClick={() => open(undefined, goal)}>+ Подцель</button><button className="link-button" disabled={busy} onClick={() => open(goal)}>Изменить</button><button className="goal-delete" disabled={busy} onClick={() => void remove(goal)}>Удалить</button></div>
+      {rows.map(({ goal, depth }) => <article className={`monthly-goal-card ${depth ? 'is-nested' : ''} ${goal.completed ? 'is-complete' : goal.failed ? 'is-failed' : ''}`} style={{ '--goal-depth': Math.min(depth, 4) } as CSSProperties} key={goal.id}>
+        <button className="monthly-goal-check" disabled={busy} aria-label={goal.completed ? `Вернуть «${goal.title}» в работу` : `Завершить «${goal.title}»`} aria-pressed={goal.completed} onClick={() => void toggle(goal)}>{goal.completed ? '✓' : goal.failed ? '✕' : ''}</button>
+        <div className="monthly-goal-body"><span className="monthly-goal-parent">{depth ? '↳ ' : '↗ '}{items.find((parent) => parent.id === goal.parentSubgoalId)?.title ?? parents.find((parent) => parent.id === goal.parentId)?.title ?? 'Большая цель'}</span><h3>{goal.title}</h3>{goal.description && <p>{goal.description}</p>}{goal.failed && <small className="goal-failed-label">✕ Не выполнено</small>}{goal.nextStep && !goal.completed && !goal.failed && <small>Дальше: {goal.nextStep}</small>}</div>
+        <div className="monthly-goal-actions"><button className="link-button goal-fail" disabled={busy} aria-pressed={!!goal.failed} onClick={() => void toggle(goal, true)}>{goal.failed ? 'Вернуть в работу' : '✕ Не выполнено'}</button><button className="link-button" disabled={busy} onClick={() => open(undefined, goal)}>+ Подцель</button><button className="link-button" disabled={busy} onClick={() => open(goal)}>Изменить</button><button className="goal-delete" disabled={busy} onClick={() => void remove(goal)}>Удалить</button></div>
       </article>)}
     </div> : <div className="monthly-goals-empty"><span>Пока нет подцелей на этот месяц.</span>{activeParents.length ? <button className="link-button" onClick={() => open()}>Наметить результат →</button> : <span>Сначала создай большую цель ниже.</span>}</div>}
-    {!!items.length && <p className="monthly-goals-progress">{items.filter((goal) => goal.completed).length} из {items.length} результатов месяца достигнуто</p>}
+    {!!items.length && <p className="monthly-goals-progress">{items.filter((goal) => goal.completed).length} из {items.length} результатов месяца достигнуто · {items.filter((goal) => goal.failed).length} не выполнено</p>}
   </section>
 }

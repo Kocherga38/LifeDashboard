@@ -60,10 +60,38 @@ test('Цели сохраняются, меняют статус и входят
     assert.equal(changed.body.pinned, false)
     assert.equal((await request('/api/personal-goals')).body[0].status, 'paused')
 
+    const failed = await request(`/api/personal-goals/${created.body.id}`, 'PUT', {
+      ...changed.body, status: 'failed'
+    })
+    assert.equal(failed.status, 200)
+    assert.equal((await request('/api/personal-goals')).body[0].status, 'failed')
+    const failedSubgoal = await request(`/api/monthly-goals/${subgoal.body.id}`, 'PUT', {
+      ...moved.body, completed: false, failed: true
+    })
+    assert.equal(failedSubgoal.status, 200)
+    assert.equal(failedSubgoal.body.failed, true)
+    assert.equal(failedSubgoal.body.completed, false)
+    assert.equal((await request(`/api/monthly-goals/${subgoal.body.id}`, 'PUT', {
+      ...failedSubgoal.body, completed: true
+    })).status, 400)
+    await migrate(db)
+    assert.equal((await request('/api/monthly-goals?month=2026-11')).body[0].failed, true)
+    const history = (await db.query(`SELECT after_data FROM activity_log WHERE table_name='monthly_goals' AND action='update' AND record_key->>'id'=$1`, [subgoal.body.id])).rows
+    assert.ok(history.some((row) => row.after_data.failed === true && row.after_data.completed === false))
+
     const exportResult = await request('/api/export')
     assert.equal(exportResult.body.personal_goals.length, 1)
     assert.equal(exportResult.body.personal_goals[0].title, 'Вес 70 кг')
     assert.equal(exportResult.body.monthly_goals.length, 1)
+    assert.equal(exportResult.body.monthly_goals[0].failed, true)
+    assert.equal(exportResult.body.personal_goals[0].status, 'failed')
+    const restored = await request(`/api/monthly-goals/${subgoal.body.id}`, 'PUT', { ...failedSubgoal.body, failed: false })
+    assert.equal(restored.body.failed, false)
+    assert.equal(restored.body.completed, false)
+    const completed = await request(`/api/monthly-goals/${subgoal.body.id}`, 'PUT', { ...restored.body, completed: true })
+    assert.equal(completed.body.completed, true)
+    const reactivated = await request(`/api/personal-goals/${created.body.id}`, 'PUT', { ...failed.body, status: 'active' })
+    assert.equal(reactivated.body.status, 'active')
     assert.equal((await request(`/api/personal-goals/${created.body.id}`, 'DELETE')).status, 204)
     assert.deepEqual((await request('/api/personal-goals')).body, [])
     assert.deepEqual((await request('/api/monthly-goals?month=2026-11')).body, [])
@@ -176,5 +204,6 @@ test('Миграция сохраняет существующие месячн�
     assert.equal(saved.title, '10 смен')
     assert.equal(saved.parent_id, big)
     assert.equal(saved.parent_subgoal_id, null)
+    assert.equal(saved.failed, false)
   } finally { await db.end() }
 })

@@ -18,8 +18,8 @@ export default function GoalSpotlight({ goals, monthlyGoals, month, reference, o
     </div>
     {!!monthlyGoals.length && <div className="goal-spotlight-month">
       <span>ПЛАН НА {monthLabel(month).toLocaleUpperCase('ru-RU')}</span>
-      <div>{monthlyRows.slice(0, 3).map(({ goal, depth }) => <div key={goal.id} className={goal.completed ? 'done' : ''}>
-        <span aria-hidden="true">{depth ? '↳ ' : ''}{goal.completed ? '✓' : '○'}</span><strong>{goal.title}</strong>
+      <div>{monthlyRows.slice(0, 3).map(({ goal, depth }) => <div key={goal.id} className={goal.completed ? 'done' : goal.failed ? 'failed' : ''}>
+        <span aria-hidden="true">{depth ? '↳ ' : ''}{goal.completed ? '✓' : goal.failed ? '✕' : '○'}</span><strong>{goal.title}</strong>
       </div>)}</div>
       {monthlyGoals.length > 3 && <button className="link-button" onClick={onNavigate}>Ещё {monthlyGoals.length - 3} →</button>}
     </div>}
