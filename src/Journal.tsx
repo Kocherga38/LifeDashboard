@@ -14,6 +14,7 @@ import { journals, nutrients, nutrientLabels, validateEntry } from '../shared/jo
 import type { Kind, Entry, Field } from '../shared/journals'
 import { api, today, money, num } from './api'
 import MealNotes from './MealNotes'
+import MealTemplates from './MealTemplates'
 
 const value = (entry: Entry, key: string) => Number(entry[key] ?? 0)
 const sets = (entry: Entry) => (Array.isArray(entry.sets) ? (entry.sets as number[]) : [])
@@ -438,6 +439,7 @@ export default function Journal({ kind }: { kind: Kind }) {
           </details>
         </section>
       )}
+      {ready && kind === 'meals' && <MealTemplates products={products} meals={rows} onAdded={(entries) => { setRows(current => [...entries,...current]); setDay(String(entries[0]?.date ?? today())); setNotice('Приём пищи добавлен из шаблона.') }} />}
       <section ref={editor} className={`card form-card ${editId ? 'editing' : ''}`}>
         <h2>{editId ? 'Редактировать запись' : 'Добавить запись'}</h2>
         <form onSubmit={save} noValidate>
