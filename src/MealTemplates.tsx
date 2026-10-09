@@ -110,8 +110,8 @@ export default function MealTemplates({ products, meals, onAdded }: Props) {
         <button type="button" className="secondary" disabled={busy} onClick={()=>void remove(template)}>Удалить</button>
       </div>
     </>}
-    <details style={{marginTop:16}} open={editing!==null}>
-      <summary>{editing?'Редактирование шаблона':'Создать новый шаблон'}</summary>
+    <div style={{marginTop:16}}>
+      <h3>{editing?'Редактирование шаблона':'Создать новый шаблон'}</h3>
       <div className="journal-form" style={{marginTop:12}}>
         <label>Название<input value={title} maxLength={160} onChange={e=>setTitle(e.target.value)} placeholder="Йогурт, мюсли, банан и арахис"/></label>
       </div>
@@ -131,7 +131,7 @@ export default function MealTemplates({ products, meals, onAdded }: Props) {
         <button type="button" disabled={busy || !title.trim()} onClick={()=>void submit()}>{editing?'Сохранить изменения':'Сохранить шаблон'}</button>
         {editing && <button type="button" className="secondary" onClick={resetEditor}>Отмена</button>}
       </div>
-    </details>
+    </div>
     <details style={{marginTop:16}}>
       <summary>Создать шаблон из истории питания</summary>
       <div className="journal-form" style={{marginTop:12}}>
