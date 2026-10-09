@@ -3,10 +3,11 @@ export type Entry = Record<string, unknown> & { id: string; date?: string; name?
 export type Field = {
   key: string
   label: string
-  type?: 'date' | 'time' | 'number' | 'text' | 'sets'
+  type?: 'date' | 'time' | 'number' | 'text' | 'sets' | 'textarea'
   optional?: boolean
   min?: number
   max?: number
+  maxLength?: number
   options?: string[]
 }
 export const nutrients = ['kcal', 'protein', 'fat', 'carbs', 'fiber'] as const
@@ -65,8 +66,12 @@ export const journals: Record<Kind, { title: string; description: string; fields
   },
   products: {
     title: 'Продукты',
-    description: 'Твой справочник пищевой ценности на 100 г продукта.',
-    fields: [{ key: 'name', label: 'Название продукта' }, ...nutrientFields]
+    description: 'Твой справочник пищевой ценности на 100 г и состава продуктов.',
+    fields: [
+      { key: 'name', label: 'Название продукта' },
+      ...nutrientFields,
+      { key: 'composition', label: 'Состав', type: 'textarea', optional: true, maxLength: 50000 }
+    ]
   },
   meals: {
     title: 'Питание',
@@ -142,7 +147,7 @@ export function validateEntry(kind: Kind, raw: unknown): Record<string, unknown>
     } else if (
       typeof value !== 'string' ||
       !value.trim() ||
-      value.length > (field.key === 'note' ? 5000 : 200)
+      value.length > (field.maxLength ?? (field.key === 'note' ? 5000 : 200))
     )
       throw new Error(`Проверь поле «${field.label}».`)
     if (field.options && !field.options.includes(String(value)))

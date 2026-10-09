@@ -144,6 +144,32 @@ h1 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
+.journal-long-text {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.journal-long-text textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 140px;
+}
+.composition-cell {
+  min-width: 240px;
+  max-width: 380px;
+  white-space: normal !important;
+}
+.product-composition {
+  margin-top: 10px;
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
 .journal-chart,
 .journal-table {
   margin-top: 22px;

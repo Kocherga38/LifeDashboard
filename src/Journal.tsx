@@ -283,7 +283,7 @@ export default function Journal({ kind }: { kind: Kind }) {
   }
   function renderField(f: Field) {
     return (
-      <label key={f.key}>
+      <label key={f.key} className={f.type === 'textarea' ? 'journal-long-text' : undefined}>
         {f.label}
         {f.optional ? ' · необязательно' : ''}
         {f.options ? (
@@ -296,6 +296,16 @@ export default function Journal({ kind }: { kind: Kind }) {
               <option key={o}>{o}</option>
             ))}
           </select>
+        ) : f.type === 'textarea' ? (
+          <textarea
+            rows={6}
+            value={form[f.key] ?? ''}
+            maxLength={f.maxLength}
+            placeholder="Вставь состав с упаковки или сайта целиком, включая информацию об аллергенах."
+            required={!f.optional}
+            disabled={disabled}
+            onChange={(e) => change(f.key, e.target.value)}
+          />
         ) : (
           <input
             type={f.type === 'sets' ? 'text' : (f.type ?? 'text')}
@@ -568,14 +578,24 @@ export default function Journal({ kind }: { kind: Kind }) {
                   {selected.map((r) => (
                     <tr key={r.id}>
                       {meta.fields.map((f) => (
-                        <td key={f.key} className={f.key === 'note' ? 'note-cell' : ''}>
+                        <td
+                          key={f.key}
+                          className={f.type === 'textarea' ? 'composition-cell' : f.key === 'note' ? 'note-cell' : ''}
+                        >
                           {r[f.key] === null || r[f.key] === undefined || r[f.key] === ''
                             ? '—'
-                            : Array.isArray(r[f.key])
-                              ? (r[f.key] as number[]).join(' / ')
-                              : typeof r[f.key] === 'number'
-                                ? num(r[f.key] as number)
-                                : String(r[f.key])}
+                            : f.type === 'textarea'
+                              ? (
+                                <details>
+                                  <summary>Показать состав</summary>
+                                  <div className="product-composition">{String(r[f.key])}</div>
+                                </details>
+                              )
+                              : Array.isArray(r[f.key])
+                                ? (r[f.key] as number[]).join(' / ')
+                                : typeof r[f.key] === 'number'
+                                  ? num(r[f.key] as number)
+                                  : String(r[f.key])}
                         </td>
                       ))}
                       {kind === 'meals' && (
