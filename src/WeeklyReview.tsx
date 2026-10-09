@@ -6,7 +6,7 @@ import './planning.css'
 import type { MonthlyGoal, PersonalGoal } from './goalTypes'
 import './overview.css'
 
-type Task = { id: string; title: string; date: string; completed: boolean; color: string }
+type Task = { id: string; title: string; date: string; occurrenceDate?: string; completed: boolean; failed: boolean; color: string }
 type Habit = { id: string; name: string }
 type Mark = { habitId: string; date: string }
 type Expense = { id: string; amount: number; type: 'expense' | 'income'; date: string }
@@ -84,6 +84,7 @@ export default function WeeklyReview({ onNavigate }: { onNavigate: (month: strin
   const ops = expenses.filter((x) => x.date >= from && x.date <= to)
   const weekShifts = week(shifts), weekWeights = week(weights), weekWorkouts = week(workouts), weekDiary = diary.filter((x) => x.date >= from && x.date <= to)
   const done = tasks.filter((t) => t.completed).length
+  const failed = tasks.filter((t) => t.failed).length
   const spent = ops.filter((x) => x.type === 'expense').reduce((s,x)=>s+Number(x.amount),0)
   const earned = ops.filter((x) => x.type === 'income').reduce((s,x)=>s+Number(x.amount),0)
   const shiftPay = weekShifts.reduce((s,x)=>s+Number(x.pay||0),0)
@@ -105,7 +106,7 @@ export default function WeeklyReview({ onNavigate }: { onNavigate: (month: strin
     {goalsLoaded && <GoalSpotlight goals={goals} monthlyGoals={monthlyGoals} month={from.slice(0, 7)} reference={iso(new Date())} onNavigate={() => onNavigate(from.slice(0, 7))} weekly />}
 
     <section className="review-metrics">
-      <article className="card metric"><span>Задачи</span><strong>{tasks.length ? Math.round(done/tasks.length*100) : 0}%</strong><small>{done} из {tasks.length} выполнено</small></article>
+      <article className="card metric"><span>Задачи</span><strong>{tasks.length ? Math.round(done/tasks.length*100) : 0}%</strong><small>{done} из {tasks.length} выполнено</small>{failed > 0 && <small className="task-outcome">✗ {failed} не выполнено</small>}</article>
       <article className="card metric"><span>Расходы</span><strong>{money(spent)}</strong><small>доходы {money(earned)}</small></article>
       <article className="card metric"><span>Работа</span><strong>{shiftHours.toLocaleString('ru-RU')} ч</strong><small>{weekShifts.length} смен · {money(shiftPay)}</small></article>
       <article className="card metric"><span>Тренировки</span><strong>{workoutDays}</strong><small>дней · {weekWorkouts.length} упражнений</small></article>
@@ -134,7 +135,7 @@ export default function WeeklyReview({ onNavigate }: { onNavigate: (month: strin
     <section className="review-columns">
       <article className="card weekly-section">
         <div className="section-heading"><h2>Задачи недели</h2><span className="badge">{done}/{tasks.length}</span></div>
-        <div className="overview-list">{tasks.length ? tasks.map((t)=><div className={`review-task color-${t.color ?? 'default'} ${t.completed?'done':''}`} key={t.id+t.date}><span>{t.completed?'✓':'○'}</span><div><strong>{t.title}</strong><small>{parse(t.date).toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'short'})}</small></div></div>) : <p className="muted">Задач не было.</p>}</div>
+        <div className="overview-list">{tasks.length ? tasks.map((t)=><div className={`review-task color-${t.color ?? 'default'} ${t.completed ? 'done' : t.failed ? 'failed' : ''}`} key={t.id + (t.occurrenceDate ?? t.date)}><span aria-hidden="true">{t.completed ? '✓' : t.failed ? '✗' : '○'}</span><div><strong>{t.title}</strong>{t.failed && <small className="task-outcome">Не выполнена</small>}<small>{parse(t.date).toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'short'})}</small></div></div>) : <p className="muted">Задач не было.</p>}</div>
       </article>
       <article className="card weekly-section">
         <div className="section-heading"><h2>Короткий итог</h2></div>

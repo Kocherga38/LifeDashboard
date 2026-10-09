@@ -57,6 +57,30 @@
 
 .sidebar-menu-toggle { display: none; }
 
+/* A failed task stays visible as a recorded outcome, distinct from the plan. */
+.workspace .task-outcome { color: #f0a099; font-size: 11px; line-height: 1.4; }
+.workspace :is(.task-row, .today-task).failed { border-color: #88554f; background: #352925; }
+.workspace .review-task.failed > span { color: #f0a099; }
+.workspace button.task-fail {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #675049;
+  border-radius: 7px;
+  background: transparent;
+  color: #c5a6a0;
+  font-size: 16px;
+  line-height: 1;
+}
+.workspace button.task-fail[aria-pressed="true"] { background: #613a33; border-color: #ce8d81; color: #ffd1c5; }
+.workspace button.task-fail:hover:not(:disabled) { background: #613a33; color: #ffd1c5; }
+.workspace .task-row { padding-bottom: 36px; }
+.workspace .today-task-check { display: flex; align-items: center; flex: 1; min-width: 0; gap: 10px; cursor: pointer; }
+.workspace .today-task-check input { flex: 0 0 18px; margin: 0; }
+.workspace .today-task-copy { display: grid; min-width: 0; font-size: 13px; line-height: 1.4; }
+.workspace .today-task-copy > span { overflow-wrap: break-word; }
+
 /* At high zoom the sidebar becomes a disclosure, leaving room for the page. */
 @media (max-width: 60rem) {
   .app-shell { display: block; }

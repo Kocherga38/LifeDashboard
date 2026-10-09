@@ -126,11 +126,13 @@ export async function migrate(db: DB) {
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS interval_days INTEGER`)
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS weekdays JSONB NOT NULL DEFAULT '[]'::jsonb`)
     await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT 'default'`)
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS failed BOOLEAN NOT NULL DEFAULT FALSE CHECK(NOT (completed AND failed))`)
     await client.query(`CREATE INDEX IF NOT EXISTS tasks_date_idx ON tasks(task_date)`)
     await client.query(
       `CREATE TABLE IF NOT EXISTS task_occurrences(task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,occurrence_date DATE NOT NULL,completed BOOLEAN NOT NULL DEFAULT FALSE,PRIMARY KEY(task_id,occurrence_date))`
     )
     await client.query(`ALTER TABLE task_occurrences ADD COLUMN IF NOT EXISTS moved_to_date DATE`)
+    await client.query(`ALTER TABLE task_occurrences ADD COLUMN IF NOT EXISTS failed BOOLEAN NOT NULL DEFAULT FALSE CHECK(NOT (completed AND failed))`)
     await client.query(`CREATE INDEX IF NOT EXISTS task_occurrences_date_idx ON task_occurrences(occurrence_date)`)
     await client.query(`CREATE INDEX IF NOT EXISTS task_occurrences_moved_date_idx ON task_occurrences(moved_to_date) WHERE moved_to_date IS NOT NULL`)
     await client.query(

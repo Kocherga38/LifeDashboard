@@ -18,6 +18,7 @@ type Task = {
   startDate?: string
   occurrenceDate?: string
   completed: boolean
+  failed: boolean
   recurrence: Recurrence
   color: TaskColor
 }
@@ -225,6 +226,8 @@ export default function Calendar() {
   const [view, setView] = useState<View>('week')
   const [anchor, setAnchor] = useState(() => parseDate(today()))
   const [tasks, setTasks] = useState<Task[]>([])
+  const statusLocks = useRef(new Set<string>())
+  const [updatingTasks, setUpdatingTasks] = useState(new Set<string>())
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [eventForm, setEventForm] = useState(emptyEvent)
   const [eventEditor, setEventEditor] = useState(false)
@@ -385,8 +388,13 @@ export default function Calendar() {
     }
   }
 
-  async function toggle(task: Task) {
-    const optimistic = { ...task, completed: !task.completed }
+  async function setOutcome(task: Task, completed: boolean, failed: boolean) {
+    const key = taskIdentity(task)
+    if (statusLocks.current.has(key)) return
+    statusLocks.current.add(key)
+    setUpdatingTasks(new Set(statusLocks.current))
+    setError('')
+    const optimistic = { ...task, completed, failed }
     setTasks((current) =>
       current.map((t) => (taskIdentity(t) === taskIdentity(task) ? optimistic : t))
     )
@@ -394,7 +402,7 @@ export default function Calendar() {
       const saved = await api<Task>(`/api/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: optimistic.completed, date: task.date, occurrenceDate: task.occurrenceDate })
+        body: JSON.stringify({ completed, failed, date: task.date, occurrenceDate: task.occurrenceDate })
       })
       setTasks((current) =>
         current.map((t) => (taskIdentity(t) === taskIdentity(task) ? saved : t))
@@ -404,6 +412,9 @@ export default function Calendar() {
         current.map((t) => (taskIdentity(t) === taskIdentity(task) ? task : t))
       )
       setError((e as Error).message)
+    } finally {
+      statusLocks.current.delete(key)
+      setUpdatingTasks(new Set(statusLocks.current))
     }
   }
 
@@ -454,7 +465,7 @@ export default function Calendar() {
   }
 
   async function remove(task: Task) {
-    if (task.recurrence && !window.confirm(`Удалить повторяющуюся задачу «${task.title}» целиком? Выполненные задачи останутся в истории.`)) return
+    if (task.recurrence && !window.confirm(`Удалить повторяющуюся задачу «${task.title}» целиком? Выполненные и невыполненные дни останутся отдельными задачами.`)) return
     const before = tasks
     setTasks((current) => current.filter((t) => t.id !== task.id))
     if (editing?.id === task.id) setEditing(null)
@@ -528,6 +539,7 @@ export default function Calendar() {
         <strong className="calendar-range-title">{title}</strong>
         <div className="calendar-summary">
           {tasks.filter((task) => task.completed).length}/{tasks.length} выполнено
+          {tasks.some((task) => task.failed) && <small className="task-outcome">{tasks.filter((task) => task.failed).length} не выполнено</small>}
         </div>
       </section>
 
@@ -599,9 +611,9 @@ export default function Calendar() {
                       </form>
                     ) : (
                       <div
-                        className={`task-row color-${task.color ?? 'default'} ${task.completed ? 'done' : ''} ${draggingTask && taskIdentity(draggingTask) === taskIdentity(task) ? 'dragging' : ''}`}
+                        className={`task-row color-${task.color ?? 'default'} ${task.completed ? 'done' : task.failed ? 'failed' : ''} ${draggingTask && taskIdentity(draggingTask) === taskIdentity(task) ? 'dragging' : ''}`}
                         key={taskIdentity(task)}
-                        draggable={!saving}
+                        draggable={!saving && !updatingTasks.has(taskIdentity(task))}
                         title="Перетащи задачу на другой день"
                         onDragStart={(event) => {
                           setDraggingTask(task)
@@ -614,16 +626,18 @@ export default function Calendar() {
                         }}
                       >
                         <label className="task-check-label" title={task.completed ? 'Вернуть задачу' : 'Выполнить'}>
-                          <input className="task-checkbox" type="checkbox" checked={task.completed} onChange={() => toggle(task)} />
+                          <input className="task-checkbox" type="checkbox" checked={task.completed} disabled={updatingTasks.has(taskIdentity(task))} onChange={() => void setOutcome(task, !task.completed, false)} />
                           <span className="task-fake-check" aria-hidden="true" />
                           <span className="task-copy">
                             <span className="task-title">{task.title}</span>
+                            {task.failed && <span className="task-outcome">✗ Не выполнена</span>}
                             {task.recurrence && <span className="task-repeat-badge" title="Повторяющаяся задача">↻ {repeatLabel(task.recurrence)}</span>}
                           </span>
                         </label>
                         <div className="task-actions">
-                          <button className="task-edit" onClick={() => beginEdit(task)} aria-label={`Редактировать задачу «${task.title}»`} title="Редактировать">✎</button>
-                          <button className="task-delete" onClick={() => remove(task)} aria-label={`Удалить задачу «${task.title}»`} title={task.recurrence ? 'Удалить всё повторение' : 'Удалить'}>×</button>
+                          <button className="task-fail" disabled={updatingTasks.has(taskIdentity(task))} aria-pressed={task.failed} onClick={() => void setOutcome(task, false, !task.failed)} aria-label={`${task.failed ? 'Вернуть в план' : 'Отметить как не выполненную'}: ${task.title}`} title={task.failed ? 'Вернуть в план' : 'Не выполнена'}>✗</button>
+                          <button className="task-edit" disabled={updatingTasks.has(taskIdentity(task))} onClick={() => beginEdit(task)} aria-label={`Редактировать задачу «${task.title}»`} title="Редактировать">✎</button>
+                          <button className="task-delete" disabled={updatingTasks.has(taskIdentity(task))} onClick={() => remove(task)} aria-label={`Удалить задачу «${task.title}»`} title={task.recurrence ? 'Удалить всё повторение' : 'Удалить'}>×</button>
                         </div>
                       </div>
                     )

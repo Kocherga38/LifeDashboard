@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { api, money, today } from './api'
 import GoalSpotlight from './GoalSpotlight'
@@ -6,7 +6,7 @@ import QuickAdd from './QuickAdd'
 import type { MonthlyGoal, PersonalGoal } from './goalTypes'
 import './overview.css'
 
-type Task = { id: string; title: string; date: string; occurrenceDate?: string; completed: boolean; color: string }
+type Task = { id: string; title: string; date: string; occurrenceDate?: string; completed: boolean; failed: boolean; color: string }
 type Habit = { id: string; name: string }
 type Mark = { habitId: string; date: string }
 type Flashcard = { id: string; dueDate: string }
@@ -18,6 +18,8 @@ type Nav = 'calendar' | 'habits' | 'flashcards' | 'diary' | 'operations' | 'shif
 export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }) {
   const date = today()
   const [tasks, setTasks] = useState<Task[]>([])
+  const statusLocks = useRef(new Set<string>())
+  const [updatingTasks, setUpdatingTasks] = useState(new Set<string>())
   const [habits, setHabits] = useState<Habit[]>([])
   const [marks, setMarks] = useState<Mark[]>([])
   const [cards, setCards] = useState<Flashcard[]>([])
@@ -56,6 +58,7 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
 
   const marked = useMemo(() => new Set(marks.map((m) => m.habitId)), [marks])
   const completedTasks = tasks.filter((t) => t.completed).length
+  const failedTasks = tasks.filter((t) => t.failed).length
   const dueCards = cards.filter((c) => c.dueDate <= date).length
   const todayOps = expenses.filter((x) => x.date === date)
   const spent = todayOps.filter((x) => x.type === 'expense').reduce((s, x) => s + Number(x.amount), 0)
@@ -65,15 +68,27 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
   const todayWeight = weights.find((x) => x.date === date)
   const todayDiary = diary.filter((x) => x.date === date)
 
-  const toggleTask = async (task: Task) => {
-    const next = !task.completed
-    setTasks((xs) => xs.map((x) => x.id === task.id && x.date === task.date ? { ...x, completed: next } : x))
+  const taskKey = (task: Task) => `${task.id}:${task.occurrenceDate ?? task.date}`
+  const setOutcome = async (task: Task, completed: boolean, failed: boolean) => {
+    const key = taskKey(task)
+    if (statusLocks.current.has(key)) return
+    statusLocks.current.add(key)
+    setUpdatingTasks(new Set(statusLocks.current))
+    setError('')
+    setTasks((xs) => xs.map((x) => taskKey(x) === key ? { ...x, completed, failed } : x))
     try {
-      await api(`/api/tasks/${task.id}`, {
+      const saved = await api<Task>(`/api/tasks/${task.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: next, date: task.date, occurrenceDate: task.occurrenceDate })
+        body: JSON.stringify({ completed, failed, date: task.date, occurrenceDate: task.occurrenceDate })
       })
-    } catch (e) { setError((e as Error).message); await load() }
+      setTasks((xs) => xs.map((x) => taskKey(x) === key ? saved : x))
+    } catch (e) {
+      setTasks((xs) => xs.map((x) => taskKey(x) === key ? task : x))
+      setError((e as Error).message)
+    } finally {
+      statusLocks.current.delete(key)
+      setUpdatingTasks(new Set(statusLocks.current))
+    }
   }
 
   const toggleHabit = async (habit: Habit) => {
@@ -110,10 +125,12 @@ export default function Today({ onNavigate }: { onNavigate: (tab: Nav) => void }
       <article className="card overview-block">
         <div className="overview-block-head"><div><span className="kicker">ПЛАН</span><h2>Задачи</h2></div><button className="link-button" onClick={() => onNavigate('calendar')}>Календарь →</button></div>
         <div className="big-progress"><strong>{completedTasks}/{tasks.length}</strong><span>выполнено</span></div>
+        {failedTasks > 0 && <p className="task-outcome">✗ {failedTasks} не выполнено</p>}
         <div className="overview-list">{tasks.length ? tasks.map((task) =>
-          <label className={`today-task color-${task.color ?? 'default'} ${task.completed ? 'done' : ''}`} key={task.id + task.date}>
-            <input type="checkbox" checked={task.completed} onChange={() => toggleTask(task)} /><span>{task.title}</span>
-          </label>
+          <div className={`today-task color-${task.color ?? 'default'} ${task.completed ? 'done' : task.failed ? 'failed' : ''}`} key={taskKey(task)}>
+            <label className="today-task-check"><input type="checkbox" checked={task.completed} disabled={updatingTasks.has(taskKey(task))} onChange={() => void setOutcome(task, !task.completed, false)} /><span className="today-task-copy"><span>{task.title}</span>{task.failed && <small className="task-outcome">✗ Не выполнена</small>}</span></label>
+            <button className="task-fail" disabled={updatingTasks.has(taskKey(task))} aria-pressed={task.failed} onClick={() => void setOutcome(task, false, !task.failed)} aria-label={`${task.failed ? 'Вернуть в план' : 'Отметить как не выполненную'}: ${task.title}`} title={task.failed ? 'Вернуть в план' : 'Не выполнена'}>✗</button>
+          </div>
         ) : <p className="muted">На сегодня задач нет.</p>}</div>
       </article>
 
