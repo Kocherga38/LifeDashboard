@@ -4,7 +4,7 @@ import { validDate } from '../shared/journals.js'
 
 // One registry for both backup routes and history coverage.
 export const dataTables = [
-  'expenses', 'operation_categories', 'operation_templates', 'budgets', 'journal_entries',
+  'expenses', 'operation_categories', 'operation_templates', 'budgets', 'journal_entries', 'meal_templates',
   'sleep_entries', 'tasks', 'task_occurrences', 'note_folders', 'notes', 'diary_entries',
   'laundry_items', 'laundry_washes', 'supply_items', 'supply_purchases',
   'flashcards', 'habits', 'habit_marks', 'personal_goals', 'monthly_goals', 'app_settings',
