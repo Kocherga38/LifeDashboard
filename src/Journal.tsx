@@ -54,6 +54,9 @@ export default function Journal({ kind }: { kind: Kind }) {
   const lock = useRef(false),
     editor = useRef<HTMLDivElement>(null)
   const [mealDetails, setMealDetails] = useState(false)
+  const [extraMeasurements, setExtraMeasurements] = useState<Record<string, string>>({})
+  const [newMeasurementName, setNewMeasurementName] = useState('')
+  const savedMeasurementNames = Array.from(new Set(rows.flatMap((r) => Object.keys((r.extras && typeof r.extras === 'object' && !Array.isArray(r.extras) ? r.extras : {}) as Record<string, unknown>))))
   useEffect(() => {
     const c = new AbortController()
     setLoading(true)
@@ -175,11 +178,13 @@ export default function Journal({ kind }: { kind: Kind }) {
     setEditId(null)
     setForm(makeForm(kind))
     setMealDetails(false)
+    setExtraMeasurements({})
   }
   function fill(row: Entry, repeat = false) {
     setEditId(repeat ? null : row.id)
     setError('')
     setNotice('')
+    setExtraMeasurements(Object.fromEntries(Object.entries((row.extras && typeof row.extras === 'object' && !Array.isArray(row.extras) ? row.extras : {}) as Record<string, unknown>).map(([k, v]) => [k, String(v)])))
     setForm(
       Object.fromEntries(
         meta.fields.map((f) => [
@@ -217,6 +222,15 @@ export default function Journal({ kind }: { kind: Kind }) {
           ])
         )
       )
+      if (kind === 'measurements') {
+        const extras: Record<string, number> = {}
+        for (const [name, raw] of Object.entries(extraMeasurements)) {
+          if (!raw.trim()) continue
+          const n = Number(raw.replace(',', '.'))
+          extras[name] = n
+        }
+        data = validateEntry(kind, { ...data, extras })
+      }
     } catch (e) {
       setError((e as Error).message)
       if (kind === 'meals') setMealDetails(true)
@@ -448,6 +462,44 @@ export default function Journal({ kind }: { kind: Kind }) {
               .filter((f) => kind !== 'meals' || ['date', 'meal', 'name', 'grams'].includes(f.key))
               .map(renderField)}
           </div>
+          {kind === 'measurements' && (
+            <div className="journal-custom-measurements">
+              <h3>Дополнительные замеры</h3>
+              {Object.entries(extraMeasurements).map(([name, cm]) => (
+                <div key={name} className="form-actions">
+                  <label style={{ flex: 1 }}>
+                    {name}, см
+                    <input type="number" min="1" max="400" step="any" value={cm}
+                      disabled={disabled} onChange={(e) => setExtraMeasurements((prev) => ({ ...prev, [name]: e.target.value }))} />
+                  </label>
+                  <button type="button" className="secondary" disabled={disabled}
+                    onClick={() => setExtraMeasurements((prev) => { const next = { ...prev }; delete next[name]; return next })}>
+                    Убрать
+                  </button>
+                </div>
+              ))}
+              <div className="form-actions">
+                <input aria-label="Название нового замера" placeholder="Например, плечи"
+                  maxLength={60} value={newMeasurementName} disabled={disabled}
+                  onChange={(e) => setNewMeasurementName(e.target.value)} />
+                <button type="button" className="secondary" disabled={disabled}
+                  onClick={() => {
+                    const name = newMeasurementName.trim()
+                    if (!name || Object.keys(extraMeasurements).length >= 30) return
+                    setExtraMeasurements((prev) => ({ ...prev, [name]: prev[name] ?? '' }))
+                    setNewMeasurementName('')
+                  }}>+ Замер</button>
+              </div>
+              {savedMeasurementNames.filter((name) => !(name in extraMeasurements)).length > 0 && (
+                <div className="form-actions">
+                  {savedMeasurementNames.filter((name) => !(name in extraMeasurements)).map((name) => (
+                    <button type="button" className="secondary" key={name} disabled={disabled}
+                      onClick={() => setExtraMeasurements((prev) => ({ ...prev, [name]: '' }))}>+ {name}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {kind === 'meals' && (
             <>
               <div className="meal-preview">
@@ -570,6 +622,7 @@ export default function Journal({ kind }: { kind: Kind }) {
                     {meta.fields.map((f) => (
                       <th key={f.key}>{f.label.split(':')[0]}</th>
                     ))}
+                    {kind === 'measurements' && <th>Другие замеры, см</th>}
                     {kind === 'meals' && <th>Ккал в порции</th>}
                     {kind === 'shifts' && <th>Чистыми</th>}
                     {kind === 'workouts' && <th>Всего</th>}
@@ -600,6 +653,9 @@ export default function Journal({ kind }: { kind: Kind }) {
                                   : String(r[f.key])}
                         </td>
                       ))}
+                      {kind === 'measurements' && (
+                        <td>{Object.entries((r.extras && typeof r.extras === 'object' && !Array.isArray(r.extras) ? r.extras : {}) as Record<string, unknown>).map(([name, cm]) => `${name}: ${num(Number(cm))}`).join(', ') || '—'}</td>
+                      )}
                       {kind === 'meals' && (
                         <td>{num((value(r, 'kcal') * value(r, 'grams')) / 100)}</td>
                       )}
