@@ -206,7 +206,7 @@ export default function Journal({ kind }: { kind: Kind }) {
     try {
       data = validateEntry(
         kind,
-        Object.fromEntries(
+        { ...Object.fromEntries(
           meta.fields.map((f) => [
             f.key,
             f.type === 'number'
@@ -220,7 +220,7 @@ export default function Journal({ kind }: { kind: Kind }) {
                     .map(Number)
                 : form[f.key]
           ])
-        )
+        ), extras: kind === 'measurements' ? Object.fromEntries(Object.entries(extraMeasurements).filter(([, cm]) => cm.trim()).map(([name, cm]) => [name, Number(cm.replace(',', '.'))])) : undefined }
       )
       if (kind === 'measurements') {
         const extras: Record<string, number> = {}
