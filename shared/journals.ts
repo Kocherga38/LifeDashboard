@@ -154,10 +154,22 @@ export function validateEntry(kind: Kind, raw: unknown): Record<string, unknown>
       throw new Error(`Выбери значение «${field.label}».`)
     output[field.key] = typeof value === 'string' ? value.trim() : value
   }
-  if (
-    kind === 'measurements' &&
-    ['waist', 'chest', 'biceps', 'thigh'].every((k) => output[k] === null)
-  )
-    throw new Error('Укажи хотя бы один замер.')
+  if (kind === 'measurements') {
+    const extras = input.extras ?? {}
+    if (!extras || typeof extras !== 'object' || Array.isArray(extras))
+      throw new Error('Некорректные дополнительные замеры.')
+    const custom: Record<string, number> = {}
+    for (const [name, cm] of Object.entries(extras as Record<string, unknown>)) {
+      if (!name.trim() || name.length > 60 || ['__proto__', 'constructor', 'prototype'].includes(name))
+        throw new Error('Проверь название дополнительного замера.')
+      if (typeof cm !== 'number' || !Number.isFinite(cm) || cm < 1 || cm > 400)
+        throw new Error(`Проверь замер «${name}».`)
+      custom[name.trim()] = cm
+    }
+    if (Object.keys(custom).length > 30) throw new Error('Слишком много дополнительных замеров.')
+    output.extras = custom
+    if (['waist', 'chest', 'biceps', 'thigh'].every((k) => output[k] === null) && !Object.keys(custom).length)
+      throw new Error('Укажи хотя бы один замер.')
+  }
   return output
 }
