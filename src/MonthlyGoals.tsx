@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import { api, today } from './api'
 import type { MonthlyGoal, PersonalGoal } from './goalTypes'
@@ -17,7 +17,38 @@ export default function MonthlyGoals({ parents, refreshKey, initialMonth }: { pa
   const [formItems, setFormItems] = useState<MonthlyGoal[]>([])
   const [formLoading, setFormLoading] = useState(false)
   const activeParents = parents.filter((goal) => goal.status === 'active')
-  const rows = monthlyGoalRows(items)
+  const [savedOrders, setSavedOrders] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem('trellis-monthly-goal-order') || '{}') as Record<string, string[]> }
+    catch { return {} }
+  })
+  const orderedItems = useMemo(() => {
+    const positions = new Map((savedOrders[month] ?? []).map((id, index) => [id, index]))
+    return [...items].sort((a, b) => (positions.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (positions.get(b.id) ?? Number.MAX_SAFE_INTEGER))
+  }, [items, savedOrders, month])
+  const rows = monthlyGoalRows(orderedItems)
+  const progressFor = (id: string) => {
+    const descendants = monthlyGoalDescendants(items, id)
+    const leaves = items.filter((child) => descendants.has(child.id) && !items.some((other) => other.parentSubgoalId === child.id))
+    const parent = items.find((goal) => goal.id === id)
+    const target = parent?.title.match(/\b(\d+)\s*(?:смен(?:у|ы)?|задач(?:у|и)?|раз(?:а)?|трениров(?:ку|ки|ок))/i)
+    const total = Math.max(target ? Number(target[1]) : leaves.length, 1)
+    return { complete: leaves.filter((child) => child.completed).length, total, hasChildren: descendants.size > 0 }
+  }
+  const moveGoal = (goal: MonthlyGoal, direction: -1 | 1) => {
+    const siblings = rows.filter(({ goal: other }) => other.parentId === goal.parentId && other.parentSubgoalId === goal.parentSubgoalId).map(({ goal: other }) => other.id)
+    const position = siblings.indexOf(goal.id)
+    const next = position + direction
+    if (next < 0 || next >= siblings.length) return
+    const positions = new Map(rows.map(({ goal: row }, index) => [row.id, index]))
+    const peer = siblings[next]
+    const oldRank = positions.get(goal.id)!
+    positions.set(goal.id, positions.get(peer)!)
+    positions.set(peer, oldRank)
+    const rearranged = [...orderedItems].sort((a, b) => positions.get(a.id)! - positions.get(b.id)!)
+    const nextOrders = { ...savedOrders, [month]: monthlyGoalRows(rearranged).map(({ goal: row }) => row.id) }
+    setSavedOrders(nextOrders)
+    localStorage.setItem('trellis-monthly-goal-order', JSON.stringify(nextOrders))
+  }
   const candidates = form?.month === month ? items : formItems
   const excluded = editing ? monthlyGoalDescendants(candidates, editing.id) : new Set<string>()
   const parentOptions = monthlyGoalRows(candidates).filter(({ goal }) =>
@@ -124,8 +155,11 @@ export default function MonthlyGoals({ parents, refreshKey, initialMonth }: { pa
     {loading ? <p className="muted">Загружаю план месяца…</p> : items.length ? <div className="monthly-goals-list">
       {rows.map(({ goal, depth }) => <article className={`monthly-goal-card ${depth ? 'is-nested' : ''} ${goal.completed ? 'is-complete' : goal.failed ? 'is-failed' : ''}`} style={{ '--goal-depth': Math.min(depth, 4) } as CSSProperties} key={goal.id}>
         <button className="monthly-goal-check" disabled={busy} aria-label={goal.completed ? `Вернуть «${goal.title}» в работу` : `Завершить «${goal.title}»`} aria-pressed={goal.completed} onClick={() => void toggle(goal)}>{goal.completed ? '✓' : goal.failed ? '✕' : ''}</button>
-        <div className="monthly-goal-body"><span className="monthly-goal-parent">{depth ? '↳ ' : '↗ '}{items.find((parent) => parent.id === goal.parentSubgoalId)?.title ?? parents.find((parent) => parent.id === goal.parentId)?.title ?? 'Большая цель'}</span><h3>{goal.title}</h3>{goal.description && <p>{goal.description}</p>}{goal.failed && <small className="goal-failed-label">✕ Не выполнено</small>}{goal.nextStep && !goal.completed && !goal.failed && <small>Дальше: {goal.nextStep}</small>}</div>
-        <div className="monthly-goal-actions"><button className="link-button goal-fail" disabled={busy} aria-pressed={!!goal.failed} onClick={() => void toggle(goal, true)}>{goal.failed ? 'Вернуть в работу' : '✕ Не выполнено'}</button><button className="link-button" disabled={busy} onClick={() => open(undefined, goal)}>+ Подцель</button><button className="link-button" disabled={busy} onClick={() => open(goal)}>Изменить</button><button className="goal-delete" disabled={busy} onClick={() => void remove(goal)}>Удалить</button></div>
+        <div className="monthly-goal-body"><span className="monthly-goal-parent">{depth ? '↳ ' : '↗ '}{items.find((parent) => parent.id === goal.parentSubgoalId)?.title ?? parents.find((parent) => parent.id === goal.parentId)?.title ?? 'Большая цель'}</span><h3>{goal.title}</h3>{(() => {
+          const progress = progressFor(goal.id)
+          return progress.hasChildren ? <div className="monthly-goal-count"><strong>{progress.complete}/{progress.total}</strong><span className="monthly-goal-track"><span style={{ width: `${Math.min(100, progress.complete / progress.total * 100)}%` }} /></span></div> : null
+        })()}{goal.description && <p>{goal.description}</p>}{goal.failed && <small className="goal-failed-label">✕ Не выполнено</small>}{goal.nextStep && !goal.completed && !goal.failed && <small>Дальше: {goal.nextStep}</small>}</div>
+        <div className="monthly-goal-actions"><div className="monthly-goal-order" aria-label="Порядок подцели"><button type="button" className="link-button" title="Поднять выше" aria-label={`Поднять «${goal.title}» выше`} disabled={busy || !rows.some(({ goal: other }) => other.parentId === goal.parentId && other.parentSubgoalId === goal.parentSubgoalId && rows.indexOf(rows.find(({ goal: row }) => row.id === other.id)!) < rows.indexOf(rows.find(({ goal: row }) => row.id === goal.id)!))} onClick={() => moveGoal(goal, -1)}>↑</button><button type="button" className="link-button" title="Опустить ниже" aria-label={`Опустить «${goal.title}» ниже`} disabled={busy || rows.filter(({ goal: other }) => other.parentId === goal.parentId && other.parentSubgoalId === goal.parentSubgoalId).at(-1)?.goal.id === goal.id} onClick={() => moveGoal(goal, 1)}>↓</button></div><button className="link-button goal-fail" disabled={busy} aria-pressed={!!goal.failed} onClick={() => void toggle(goal, true)}>{goal.failed ? 'Вернуть в работу' : '✕ Не выполнено'}</button><button className="link-button" disabled={busy} onClick={() => open(undefined, goal)}>+ Подцель</button><button className="link-button" disabled={busy} onClick={() => open(goal)}>Изменить</button><button className="goal-delete" disabled={busy} onClick={() => void remove(goal)}>Удалить</button></div>
       </article>)}
     </div> : <div className="monthly-goals-empty"><span>Пока нет подцелей на этот месяц.</span>{activeParents.length ? <button className="link-button" onClick={() => open()}>Наметить результат →</button> : <span>Сначала создай большую цель ниже.</span>}</div>}
     {!!items.length && <p className="monthly-goals-progress">{items.filter((goal) => goal.completed).length} из {items.length} результатов месяца достигнуто · {items.filter((goal) => goal.failed).length} не выполнено</p>}
