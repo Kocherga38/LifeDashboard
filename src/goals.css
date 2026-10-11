@@ -135,3 +135,12 @@
 .monthly-goal-card.is-failed .monthly-goal-check { color: #e7a492; border-color: #b47a67; }
 .monthly-goal-card.is-failed .monthly-goal-body h3, .goal-spotlight-month > div > div.failed { color: #e7a492; }
 .goal-spotlight-month > div > div.failed > span { color: #e7a492; }
+
+/* Nested goal progress and compact reorder controls */
+.monthly-goal-count { display: flex; align-items: center; gap: 12px; margin: 10px 0 8px; }
+.monthly-goal-count strong { color: #c6e49f; font-size: 13px; font-variant-numeric: tabular-nums; min-width: 36px; }
+.monthly-goal-track { display: block; width: min(180px, 45%); height: 6px; overflow: hidden; border-radius: 999px; background: #182b20; }
+.monthly-goal-track > span { display: block; height: 100%; border-radius: inherit; background: #b9db90; transition: width .2s ease; }
+.monthly-goal-order { display: inline-flex; gap: 3px; align-items: center; margin-right: 4px; }
+.monthly-goal-actions .monthly-goal-order button { display: grid; place-items: center; width: 29px; height: 29px; padding: 0; border: 1px solid #4d664e; border-radius: 8px; font-size: 17px; color: #cae3b8; }
+.monthly-goal-actions .monthly-goal-order button:disabled { opacity: .3; cursor: default; }
