@@ -54,6 +54,39 @@ export default function Journal({ kind }: { kind: Kind }) {
   const lock = useRef(false),
     editor = useRef<HTMLDivElement>(null)
   const [mealDetails, setMealDetails] = useState(false)
+  const [portions, setPortions] = useState<Record<string, { label: string; grams: number }[]>>(() => {
+    try { return JSON.parse(localStorage.getItem('trellis-product-portions-v1') || '{}') } catch { return {} }
+  })
+  const [portionName, setPortionName] = useState('')
+  const [portionGrams, setPortionGrams] = useState('')
+  const [selectedPortion, setSelectedPortion] = useState('')
+  const [portionCount, setPortionCount] = useState('1')
+  const selectedProductName = String(form.name ?? '')
+  const eggPortions = /яйц|яйцо|яйца/i.test(selectedProductName)
+    ? [{ label: '1 шт. C2', grams: 43 }, { label: '1 шт. C1', grams: 52 }, { label: '1 шт. C0', grams: 60 }]
+    : []
+  const availablePortions = [...eggPortions, ...(portions[selectedProductName] ?? [])]
+  useEffect(() => {
+    try { localStorage.setItem('trellis-product-portions-v1', JSON.stringify(portions)) } catch { /* storage unavailable */ }
+  }, [portions])
+  function applyPortion(label: string, countRaw: string) {
+    setSelectedPortion(label)
+    setPortionCount(countRaw)
+    const portion = availablePortions.find(p => p.label === label)
+    const count = Number(countRaw.replace(',', '.'))
+    if (portion && Number.isFinite(count) && count > 0) change('grams', String(Math.round(portion.grams * count * 100) / 100))
+  }
+  function addPortion() {
+    const label = portionName.trim()
+    const grams = Number(portionGrams.replace(',', '.'))
+    if (!selectedProductName || !products.some(p => p.name === selectedProductName) || !label || label.length > 60 || !Number.isFinite(grams) || grams <= 0 || grams > 100000 || availablePortions.some(p => p.label === label)) return
+    setPortions(current => ({ ...current, [selectedProductName]: [...(current[selectedProductName] ?? []), { label, grams }] }))
+    setPortionName('')
+    setPortionGrams('')
+    change('grams', String(grams))
+    setSelectedPortion(label)
+    setPortionCount('1')
+  }
   const [extraMeasurements, setExtraMeasurements] = useState<Record<string, string>>({})
   const [newMeasurementName, setNewMeasurementName] = useState('')
   const savedMeasurementNames = Array.from(new Set(rows.flatMap((r) => Object.keys((r.extras && typeof r.extras === 'object' && !Array.isArray(r.extras) ? r.extras : {}) as Record<string, unknown>))))
@@ -161,6 +194,8 @@ export default function Journal({ kind }: { kind: Kind }) {
     return { ...base, average: last7.reduce((s, v) => s + value(v, 'weight'), 0) / last7.length }
   })
   function change(key: string, v: string) {
+    if (kind === 'meals' && key === 'name') { setSelectedPortion(''); setPortionCount('1') }
+    if (kind === 'meals' && key === 'grams') setSelectedPortion('')
     setForm((current) => {
       const next = { ...current, [key]: v }
       if (kind === 'meals' && key === 'name') {
@@ -178,10 +213,14 @@ export default function Journal({ kind }: { kind: Kind }) {
     setEditId(null)
     setForm(makeForm(kind))
     setMealDetails(false)
+    setSelectedPortion('')
+    setPortionCount('1')
     setExtraMeasurements({})
   }
   function fill(row: Entry, repeat = false) {
     setEditId(repeat ? null : row.id)
+    setSelectedPortion('')
+    setPortionCount('1')
     setError('')
     setNotice('')
     setExtraMeasurements(Object.fromEntries(Object.entries((row.extras && typeof row.extras === 'object' && !Array.isArray(row.extras) ? row.extras : {}) as Record<string, unknown>).map(([k, v]) => [k, String(v)])))
@@ -502,6 +541,33 @@ export default function Journal({ kind }: { kind: Kind }) {
           )}
           {kind === 'meals' && (
             <>
+              {products.some(p => p.name === selectedProductName) && (
+                <div className="product-portions">
+                  <h3>Порции продукта</h3>
+                  <div className="portion-picker">
+                    <label>Порция
+                      <select value={selectedPortion} disabled={disabled} onChange={e => applyPortion(e.target.value, portionCount)}>
+                        <option value="">Ввести массу вручную</option>
+                        {availablePortions.map(p => <option key={p.label} value={p.label}>{p.label} · {p.grams} г</option>)}
+                      </select>
+                    </label>
+                    {selectedPortion && <label>Количество порций
+                      <input type="number" min="0.01" max="1000" step="any" value={portionCount} disabled={disabled}
+                        onChange={e => applyPortion(selectedPortion, e.target.value)} />
+                    </label>}
+                  </div>
+                  <div className="portion-create">
+                    <input aria-label="Название порции" placeholder="Например, 1 штука" maxLength={60} value={portionName} disabled={disabled} onChange={e => setPortionName(e.target.value)} />
+                    <input aria-label="Масса порции в граммах" placeholder="Граммы" type="number" min="0.01" step="any" value={portionGrams} disabled={disabled} onChange={e => setPortionGrams(e.target.value)} />
+                    <button type="button" className="secondary" disabled={disabled || !portionName.trim() || Number(portionGrams) <= 0} onClick={addPortion}>+ Порция</button>
+                  </div>
+                  {(portions[selectedProductName] ?? []).length > 0 && <div className="portion-saved">
+                    {(portions[selectedProductName] ?? []).map(p => <button type="button" className="secondary" key={p.label} disabled={disabled}
+                      title="Удалить свою порцию" onClick={() => { setPortions(current => ({ ...current, [selectedProductName]: (current[selectedProductName] ?? []).filter(x => x.label !== p.label) })); if (selectedPortion === p.label) setSelectedPortion('') }}>× {p.label}</button>)}
+                  </div>}
+                  <small>Граммы считаются без скорлупы. Свои порции сохраняются в этом браузере.</small>
+                </div>
+              )}
               <div className="meal-preview">
                 {nutrients.map((n, i) => (
                   <span key={n}>
