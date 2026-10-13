@@ -74,7 +74,7 @@ export default function Journal({ kind }: { kind: Kind }) {
     setPortionCount(countRaw)
     const portion = availablePortions.find(p => p.label === label)
     const count = Number(countRaw.replace(',', '.'))
-    if (portion && Number.isFinite(count) && count > 0) change('grams', String(Math.round(portion.grams * count * 100) / 100))
+    if (portion && Number.isFinite(count) && count > 0) setForm(current => ({ ...current, grams: String(Math.round(portion.grams * count * 100) / 100) }))
   }
   function addPortion() {
     const label = portionName.trim()
