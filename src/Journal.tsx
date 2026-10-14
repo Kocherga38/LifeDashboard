@@ -23,7 +23,7 @@ const shiftNet = (entry: Entry) => value(entry, 'pay') - value(entry, 'cost') - 
 const shiftHours = (entry: Entry) =>
   value(entry, 'hours') + value(entry, 'travelOut') + value(entry, 'travelBack')
 const completeShift = (entry: Entry) =>
-  ['travelOut', 'travelBack', 'cost', 'tax'].every(
+  ['travelOut', 'travelBack', 'cost'].every(
     (k) => entry[k] !== null && entry[k] !== undefined
   )
 
@@ -445,7 +445,7 @@ export default function Journal({ kind }: { kind: Kind }) {
         <p className="muted journal-hint">
           Смены не добавляются повторно в денежные операции.{' '}
           {selected.length - complete.length > 0
-            ? `${selected.length - complete.length} записей с незаполненными расходами, налогом или дорогой исключены из чистой ставки. Впиши 0, если затрат не было.`
+            ? `${selected.length - complete.length} записей с незаполненными расходами или дорогой исключены из чистой ставки. Впиши 0, если затрат не было.`
             : ''}
         </p>
       )}
