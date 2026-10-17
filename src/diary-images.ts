@@ -1,4 +1,4 @@
-import { DIARY_IMAGE_TYPES, MAX_DIARY_IMAGE_BYTES } from '../shared/diary'
+import { DIARY_IMAGE_TYPES, MAX_DIARY_IMAGE_BYTES, MAX_DIARY_FILE_BYTES } from '../shared/diary'
 import type { DiaryImage } from '../shared/diary'
 
 function imageId(): string {
@@ -76,4 +76,14 @@ export async function prepareDiaryImage(file: File): Promise<DiaryImage> {
     dataUrl = await readDataUrl(await compressImage(image))
   }
   return { id: imageId(), name: (file.name || 'Из буфера обмена').slice(0, 200), dataUrl }
+}
+
+export async function prepareDiaryAttachment(file: File): Promise<DiaryImage> {
+  if (DIARY_IMAGE_TYPES.includes(file.type)) return prepareDiaryImage(file)
+  if (file.size > MAX_DIARY_FILE_BYTES) throw new Error('Файл больше 20 МБ.')
+  return {
+    id: imageId(),
+    name: (file.name || 'Без названия').slice(0, 200),
+    dataUrl: await readDataUrl(file)
+  }
 }
