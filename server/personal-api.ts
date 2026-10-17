@@ -12,7 +12,7 @@ const textValid = (s: unknown, max = 100): s is string =>
 
 export function createPersonalApi(db: DB) {
   const app = express()
-  app.use('/api/diary', express.json({ limit: '14mb' }))
+  app.use('/api/diary', express.json({ limit: '70mb' }))
   app.use(express.json({ limit: '2mb' }))
 
   const sleepFields = `id,to_char(slept_at,'YYYY-MM-DD"T"HH24:MI') AS "sleptAt",
