@@ -5,6 +5,7 @@ import DataPage from './DataPage'
 import Calendar from './Calendar'
 import Notes from './Notes'
 import Diary from './Diary'
+import PrivateVault from './PrivateVault'
 import Flashcards from './Flashcards'
 import Habits from './Habits'
 import Laundry from './Laundry'
@@ -20,7 +21,7 @@ import './analytics.css'
 import './journals.css'
 const Analytics = lazy(() => import('./Analytics'))
 const Journal = lazy(() => import('./Journal'))
-type Tab = 'today' | 'weekly' | 'goals' | 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'laundry' | 'supplies' | 'sleep' | 'data' | Kind
+type Tab = 'today' | 'weekly' | 'goals' | 'operations' | 'analytics' | 'calendar' | 'notes' | 'diary' | 'flashcards' | 'habits' | 'laundry' | 'supplies' | 'sleep' | 'data' | 'private' | Kind
 type TabItem = { key: Tab; label: string; icon: string }
 const tabs: TabItem[] = [
   { key: 'today', label: 'Сегодня', icon: '●' },
@@ -42,7 +43,8 @@ const tabs: TabItem[] = [
   { key: 'meals', label: 'Питание', icon: '◒' },
   { key: 'products', label: 'Продукты', icon: '▤' },
   { key: 'workouts', label: 'Тренировки', icon: '⌁' },
-  { key: 'data', label: 'Данные', icon: '⇣' }
+  { key: 'data', label: 'Данные', icon: '⇣' },
+  { key: 'private', label: 'Приватное', icon: '♢' }
 ]
 
 function tabsInOrder(order: string[]) {
@@ -68,7 +70,7 @@ export default function App() {
   const lastRecordedTab = useRef<Tab | null>(null)
 
   useEffect(() => {
-    if (lastRecordedTab.current === tab) return
+    if (tab === 'private' || lastRecordedTab.current === tab) return
     lastRecordedTab.current = tab
     void api('/api/activity', {
       method: 'POST',
@@ -207,6 +209,8 @@ export default function App() {
               <Supplies />
             ) : tab === 'sleep' ? (
               <Sleep />
+            ) : tab === 'private' ? (
+              <PrivateVault />
             ) : tab === 'data' ? (
               <DataPage />
             ) : (
