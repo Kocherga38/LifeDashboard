@@ -1,0 +1,16 @@
+.private-vault { max-width: 1060px; margin: 0 auto; padding: 32px 28px 64px; }
+.private-vault-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+.private-vault-heading h1, .private-vault-heading h2 { margin: 0 0 8px; }
+.private-vault-card { margin: 16px 0; padding: 24px; }
+.private-vault-card h2 { margin-top: 0; }
+.private-vault-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: end; }
+.private-vault-form label { display: grid; gap: 7px; font-weight: 600; }
+.private-vault-form input, .private-vault-form select, .private-vault-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border, #80808060); border-radius: 9px; background: var(--surface, transparent); color: inherit; font: inherit; }
+.private-vault-form textarea { resize: vertical; }
+.private-vault-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.private-vault-list { display: grid; gap: 12px; margin: 16px 0 24px; }
+.private-vault-entry { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding: 13px 0; border-bottom: 1px solid var(--border, #80808050); overflow-wrap: anywhere; }
+.private-vault-entry p { white-space: pre-wrap; }
+.private-vault-restore { display: grid; gap: 8px; margin-top: 18px; font-weight: 600; }
+.private-vault-card [role="alert"] { color: #d44; }
+@media(max-width:600px) { .private-vault { padding: 20px 14px 40px; } .private-vault-card { padding: 16px; } .private-vault-entry { flex-direction: column; } }
