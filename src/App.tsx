@@ -18,6 +18,7 @@ import ErrorBoundary from './ErrorBoundary'
 import { api, today } from './api'
 import type { Kind } from '../shared/journals'
 import './analytics.css'
+import './private-vault.css'
 import './journals.css'
 const Analytics = lazy(() => import('./Analytics'))
 const Journal = lazy(() => import('./Journal'))
