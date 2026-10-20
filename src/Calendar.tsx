@@ -515,8 +515,8 @@ export default function Calendar() {
         </div>
         {!routineView && <button className="secondary" onClick={() => openEvent(today())}>+ Событие</button>}
         <div className="calendar-view-switch" aria-label="Вид календаря">
-          <button className={!routineView && view === 'week' ? 'active' : ''} onClick={() => setRoutineView(false) || setView('week')}>Неделя</button>
-          <button className={!routineView && view === 'month' ? 'active' : ''} onClick={() => setRoutineView(false) || setView('month')}>Месяц</button>
+          <button className={!routineView && view === 'week' ? 'active' : ''} onClick={() => { setRoutineView(false); setView('week') }}>Неделя</button>
+          <button className={!routineView && view === 'month' ? 'active' : ''} onClick={() => { setRoutineView(false); setView('month') }}>Месяц</button>
           <button className={routineView ? 'active' : ''} onClick={() => { setRoutineView(true); setEventEditor(false) }}>Распорядок дня</button>
         </div>
       </header>
