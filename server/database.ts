@@ -215,7 +215,11 @@ export async function migrate(db: DB) {
       id UUID PRIMARY KEY,
       routine_date DATE NOT NULL,
       title VARCHAR(200) NOT NULL,
-      routine_time VARCHAR(5) NOT NULL CHECK(routine_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]
+      routine_time VARCHAR(5) NOT NULL,
+      recurrence JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`)
+    await client.query(`CREATE INDEX IF NOT EXISTS daily_routine_date_idx ON daily_routine(routine_date)`)
     await client.query(`CREATE TABLE IF NOT EXISTS planned_shifts(id UUID PRIMARY KEY,shift_date DATE NOT NULL,expected_pay NUMERIC(12,2) NOT NULL CHECK(expected_pay>=0),note TEXT NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
     await client.query(`ALTER TABLE planned_shifts ADD COLUMN IF NOT EXISTS received BOOLEAN NOT NULL DEFAULT FALSE`)
     await client.query(`CREATE INDEX IF NOT EXISTS planned_shifts_date_idx ON planned_shifts(shift_date)`)
