@@ -99,6 +99,47 @@ export function createPlanningApi(db: DB) {
       res.status(204).end()
     })
   }
+  // An agenda is intentionally separate from tasks and events: no completion state or duration.
+  const routineColumns = `id,to_char(routine_date,'YYYY-MM-DD') AS date,title,routine_time AS time,recurrence`
+  const routineInput = (raw: Record<string, unknown> | undefined) => {
+    const { date, title, time, recurrence = null } = raw ?? {}
+    if (!validDate(date) || !text(title, 200) || typeof time !== 'string' ||
+      !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)) throw new Error('Укажи дату, название и время в формате ЧЧ:ММ.')
+    return [date, String(title).trim(), time, JSON.stringify(validateEventRecurrence(recurrence, date))]
+  }
+  app.get('/api/daily-routine', async (req, res) => {
+    const date = req.query.date
+    if (!validDate(date)) throw new Error('Укажи корректную дату.')
+    const rows = (await db.query(`SELECT ${routineColumns} FROM daily_routine WHERE routine_date <= $1::date ORDER BY routine_time,id`, [date])).rows
+    const expanded = expandEvents(rows.map((row) => ({
+      ...row, place: '', note: '', reflection: ''
+    })) as CalendarEvent[], date, date)
+    res.json(expanded.map(({ id, date: day, startDate, title, time, recurrence }) => ({
+      id, date: day, startDate, title, time, recurrence
+    })).sort((a, b) => a.time.localeCompare(b.time) || a.id.localeCompare(b.id)))
+  })
+  app.post('/api/daily-routine', async (req, res) => {
+    const values = routineInput(req.body)
+    const row = (await db.query(`INSERT INTO daily_routine(id,routine_date,title,routine_time,recurrence)
+      VALUES($1,$2::date,$3,$4,$5::jsonb) RETURNING ${routineColumns}`, [randomUUID(), ...values])).rows[0]
+    res.status(201).json(row)
+  })
+  app.put('/api/daily-routine/:id', async (req, res) => {
+    const id = String(req.params.id)
+    if (!validId(id)) throw new Error('Некорректный ID.')
+    const values = routineInput(req.body)
+    const result = await db.query(`UPDATE daily_routine SET routine_date=$2::date,title=$3,routine_time=$4,
+      recurrence=$5::jsonb WHERE id=$1 RETURNING ${routineColumns}`, [id, ...values])
+    if (!result.rows.length) { res.status(404).json({ error: 'Пункт не найден.' }); return }
+    res.json(result.rows[0])
+  })
+  app.delete('/api/daily-routine/:id', async (req, res) => {
+    const id = String(req.params.id)
+    if (!validId(id)) throw new Error('Некорректный ID.')
+    const result = await db.query('DELETE FROM daily_routine WHERE id=$1 RETURNING id', [id])
+    if (!result.rows.length) { res.status(404).json({ error: 'Пункт не найден.' }); return }
+    res.status(204).end()
+  })
   app.get('/api/weekly-reflections', async (req, res) => {
     const from = req.query.from
     if (from && !validDate(from)) throw new Error('Некорректная дата недели.')

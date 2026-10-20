@@ -8,7 +8,7 @@ export const dataTables = [
   'sleep_entries', 'tasks', 'task_occurrences', 'note_folders', 'notes', 'diary_entries',
   'laundry_items', 'laundry_washes', 'supply_items', 'supply_purchases',
   'flashcards', 'habits', 'habit_marks', 'personal_goals', 'monthly_goals', 'app_settings',
-  'calendar_events', 'planned_shifts', 'meal_notes', 'speaking_sessions', 'weekly_reflections'
+  'calendar_events', 'daily_routine', 'planned_shifts', 'meal_notes', 'speaking_sessions', 'weekly_reflections'
 ] as const
 
 export async function installActivityLog(client: Queryable) {

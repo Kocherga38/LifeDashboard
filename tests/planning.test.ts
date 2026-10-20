@@ -28,6 +28,20 @@ test('события, смены, свободная еда, разговоры 
     assert.equal((await request('/api/events', 'POST', { date: '2026-09-28', title: 'Bad', time: '25:00' })).status, 400)
     assert.equal((await request(`/api/events/${event.body.id}`, 'PUT', { date: '2026-09-28', title: 'Speaking Club', time: '19:00', place: 'Циферблат', note: '', reflection: 'Познакомился с людьми' })).body.reflection, 'Познакомился с людьми')
 
+    const routine = await request('/api/daily-routine', 'POST', {
+      date: '2026-09-28', title: 'Японский', time: '10:00', recurrence: { type: 'interval', intervalDays: 2 }
+    })
+    assert.equal(routine.status, 201)
+    assert.equal((await request('/api/daily-routine?date=2026-09-28')).body[0].title, 'Японский')
+    assert.equal((await request('/api/daily-routine?date=2026-09-29')).body.length, 0)
+    assert.equal((await request('/api/daily-routine?date=2026-09-30')).body.length, 1)
+    assert.equal((await request('/api/daily-routine', 'POST', { date: '2026-09-28', title: 'Bad', time: '26:00' })).status, 400)
+    assert.equal((await request(`/api/daily-routine/${routine.body.id}`, 'PUT', {
+      date: '2026-09-28', title: 'Японский и английский', time: '09:30', recurrence: null
+    })).body.title, 'Японский и английский')
+    assert.equal((await request('/api/daily-routine?date=2026-09-30')).body.length, 0)
+    assert.equal((await request(`/api/daily-routine/${routine.body.id}`, 'DELETE')).status, 204)
+
     const shift = await request('/api/planned-shifts', 'POST', { date: '2026-09-27', expectedPay: 4600, note: 'Склад' })
     assert.equal(shift.status, 201)
     assert.equal(shift.body.expectedPay, 4600)

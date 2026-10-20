@@ -583,3 +583,21 @@
 .calendar-grid.month .task-color-picker {
   grid-template-columns: 1fr;
 }
+
+/* Compact daily agenda: deliberately a list rather than a timeline. */
+.routine { max-width: 760px; display: grid; gap: 16px; }
+.routine-navigation { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.routine-navigation input { min-width: 155px; }
+.routine-items { display: grid; gap: 7px; }
+.routine-item { display: flex; align-items: center; gap: 12px; padding: 11px 13px; border: 1px solid #303745; border-radius: 10px; background: #181c24; }
+.routine-item time { flex: 0 0 55px; color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; }
+.routine-item-content { display: flex; flex: 1; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; overflow-wrap: anywhere; }
+.routine-item button { padding: 5px 9px; flex: 0 0 auto; }
+.routine-add { justify-self: start; }
+.routine-form { display: grid; gap: 12px; }
+.routine-form label { display: grid; gap: 5px; }
+@media (max-width: 480px) {
+  .routine-item { gap: 7px; padding: 9px; }
+  .routine-item time { flex-basis: 46px; font-size: 12px; }
+  .routine-item button { padding: 5px 7px; }
+}

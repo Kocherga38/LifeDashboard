@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { api, today } from './api'
 import { eventRepeatLabel } from '../shared/events'
 import type { CalendarEvent, EventRecurrence } from '../shared/events'
+import DailyRoutine from './DailyRoutine'
 import './calendar.css'
 import './planning.css'
 
@@ -223,6 +224,7 @@ function EventRepeatControls({ value, onChange }: {
 }
 
 export default function Calendar() {
+  const [routineView, setRoutineView] = useState(false)
   const [view, setView] = useState<View>('week')
   const [anchor, setAnchor] = useState(() => parseDate(today()))
   const [tasks, setTasks] = useState<Task[]>([])
@@ -511,15 +513,16 @@ export default function Calendar() {
           <h1>Календарь</h1>
           <p className="muted">Задачи на неделю и месяц. Разовые и повторяющиеся.</p>
         </div>
-        <button className="secondary" onClick={() => openEvent(today())}>+ Событие</button>
+        {!routineView && <button className="secondary" onClick={() => openEvent(today())}>+ Событие</button>}
         <div className="calendar-view-switch" aria-label="Вид календаря">
-          <button className={view === 'week' ? 'active' : ''} onClick={() => setView('week')}>Неделя</button>
-          <button className={view === 'month' ? 'active' : ''} onClick={() => setView('month')}>Месяц</button>
+          <button className={!routineView && view === 'week' ? 'active' : ''} onClick={() => setRoutineView(false) || setView('week')}>Неделя</button>
+          <button className={!routineView && view === 'month' ? 'active' : ''} onClick={() => setRoutineView(false) || setView('month')}>Месяц</button>
+          <button className={routineView ? 'active' : ''} onClick={() => { setRoutineView(true); setEventEditor(false) }}>Распорядок дня</button>
         </div>
       </header>
 
       {error && <div className="message error">{error}</div>}
-      {eventEditor && <form className="card calendar-event-form" ref={eventEditorRef} onSubmit={(e) => void saveEvent(e)}>
+      {!routineView && eventEditor && <form className="card calendar-event-form" ref={eventEditorRef} onSubmit={(e) => void saveEvent(e)}>
         <h2>{eventId ? 'Изменить событие' : 'Новое событие'}</h2>
         {eventId && (eventWasRecurring || eventForm.recurrence) && <p className="muted">Изменения применятся ко всей серии, включая прошедшие события. Заметки общие для всей серии.</p>}
         <div className="planning-fields"><label>Название<input required maxLength={200} value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} /></label><label>{eventForm.recurrence ? 'Дата начала' : 'Дата'}<input required type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} /></label><label>Время<input type="time" value={eventForm.time} onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })} /></label><label>Место<input maxLength={200} value={eventForm.place} onChange={(e) => setEventForm({ ...eventForm, place: e.target.value })} /></label></div>
@@ -530,6 +533,7 @@ export default function Calendar() {
         <div className="form-actions"><button disabled={saving || (eventForm.recurrence?.type === 'weekdays' && !eventForm.recurrence.weekdays.length)}>{eventId && (eventWasRecurring || eventForm.recurrence) ? 'Сохранить всю серию' : 'Сохранить'}</button><button type="button" disabled={saving} className="secondary" onClick={() => setEventEditor(false)}>Отмена</button>{eventId && <button type="button" disabled={saving} className="secondary" onClick={() => void removeEvent()}>{eventWasRecurring ? 'Удалить всю серию' : 'Удалить'}</button>}</div>
       </form>}
 
+      {routineView ? <DailyRoutine /> : <>
       <section className="calendar-toolbar" aria-label="Навигация календаря">
         <div className="calendar-nav">
           <button className="secondary calendar-arrow" onClick={() => move(-1)} aria-label="Назад">←</button>
@@ -679,6 +683,7 @@ export default function Calendar() {
         </section>
         </div>
       )}
+      </>}
     </main>
   )
 }
