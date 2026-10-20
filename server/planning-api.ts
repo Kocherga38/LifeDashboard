@@ -104,7 +104,7 @@ export function createPlanningApi(db: DB) {
   const routineInput = (raw: Record<string, unknown> | undefined) => {
     const { date, title, time, recurrence = null } = raw ?? {}
     if (!validDate(date) || !text(title, 200) || typeof time !== 'string' ||
-      !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)) throw new Error('Укажи дату, название и время в формате ЧЧ:ММ.')
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error('Укажи дату, название и время в формате ЧЧ:ММ.')
     return [date, String(title).trim(), time, JSON.stringify(validateEventRecurrence(recurrence, date))]
   }
   app.get('/api/daily-routine', async (req, res) => {
