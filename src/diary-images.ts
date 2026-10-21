@@ -1,4 +1,4 @@
-import { DIARY_IMAGE_TYPES, MAX_DIARY_IMAGE_BYTES, MAX_DIARY_FILE_BYTES } from '../shared/diary'
+import { DIARY_IMAGE_TYPES, MAX_DIARY_IMAGE_BYTES } from '../shared/diary'
 import type { DiaryImage } from '../shared/diary'
 
 function imageId(): string {
@@ -16,7 +16,7 @@ function readDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'))
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл.'))
     reader.readAsDataURL(blob)
   })
 }
@@ -66,7 +66,6 @@ async function compressImage(image: HTMLImageElement): Promise<Blob> {
 export async function prepareDiaryImage(file: File): Promise<DiaryImage> {
   if (!DIARY_IMAGE_TYPES.includes(file.type))
     throw new Error('Выбери PNG, JPEG, WebP или GIF.')
-  if (file.size > 30 * 1024 * 1024) throw new Error('Исходное изображение слишком большое: максимум 30 МБ.')
   const source = await readDataUrl(file)
   const image = new Image()
   image.src = source
@@ -80,7 +79,6 @@ export async function prepareDiaryImage(file: File): Promise<DiaryImage> {
 
 export async function prepareDiaryAttachment(file: File): Promise<DiaryImage> {
   if (DIARY_IMAGE_TYPES.includes(file.type)) return prepareDiaryImage(file)
-  if (file.size > MAX_DIARY_FILE_BYTES) throw new Error('Файл больше 20 МБ.')
   return {
     id: imageId(),
     name: (file.name || 'Без названия').slice(0, 200),

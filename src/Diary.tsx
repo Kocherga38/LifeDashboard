@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ClipboardEvent, FormEvent } from 'react'
 import { api, today } from './api'
 import './personal.css'
-import { MAX_DIARY_IMAGES, MAX_DIARY_TOTAL_BYTES, diaryFileIsImage } from '../shared/diary'
+import { MAX_DIARY_IMAGES, diaryFileIsImage } from '../shared/diary'
 import type { DiaryImage } from '../shared/diary'
 import { prepareDiaryAttachment } from './diary-images'
 
@@ -43,10 +43,8 @@ export default function Diary() {
     }
     lock.current = true; setBusy(true); setError('')
     try {
-      const attachments = await Promise.all(files.map(prepareDiaryAttachment))
-      const bytes = (item: DiaryImage) => Math.ceil((item.dataUrl.split(',')[1]?.length ?? 0) * 0.75)
-      if ([...images, ...attachments].reduce((sum, item) => sum + bytes(item), 0) > MAX_DIARY_TOTAL_BYTES)
-        throw new Error('Суммарный размер вложений больше 48 МБ.')
+      const attachments: DiaryImage[] = []
+      for (const file of files) attachments.push(await prepareDiaryAttachment(file))
       setImages((current) => [...current, ...attachments])
     } catch (e) { setError((e as Error).message) }
     finally { lock.current = false; setBusy(false) }
@@ -82,7 +80,7 @@ export default function Diary() {
           <span>Вложения</span>
           <input ref={filesInput} type="file" multiple hidden onChange={(e) => { void addImages(Array.from(e.target.files ?? [])); e.target.value = '' }} />
           <button type="button" className="secondary" disabled={images.length >= MAX_DIARY_IMAGES} onClick={() => filesInput.current?.click()}>Добавить файлы</button>
-          <small className="muted">Любые файлы, включая аудио, MIDI, PDF и изображения. До 8 вложений, каждый файл до 20 МБ, всего до 48 МБ. Изображения уменьшаются автоматически; можно вставлять файлы через ⌘V / Ctrl+V.</small>
+          <small className="muted">Любые файлы, включая аудио, MIDI, PDF и изображения. До 8 вложений без ограничения по размеру файла. Изображения уменьшаются автоматически; можно вставлять файлы через ⌘V / Ctrl+V. Большие файлы могут долго сохраняться и увеличивают размер базы.</small>
           {images.length > 0 && <div className="diary-images diary-image-previews">{images.map((image) => <figure key={image.id}>
             {diaryFileIsImage(image) ? <img src={image.dataUrl} alt={image.name} /> : <a href={image.dataUrl} download={image.name}>📎 {image.name}</a>}
             <button type="button" className="icon-button delete" aria-label={`Удалить вложение ${image.name}`} onClick={() => setImages((current) => current.filter((x) => x.id !== image.id))}>×</button>

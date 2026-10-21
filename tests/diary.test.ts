@@ -48,9 +48,12 @@ test('Дневник сохраняет картинки, редактирует
     assert.equal((await request('/api/diary', 'POST', { ...input, images: [] })).status, 400)
     for (const invalid of [null, {}, Array.from({ length: 9 }, () => image()), [attachments[0], attachments[0]],
       [image('data:image/svg+xml;base64,PHN2Zy8+')], [image('https://example.com/image.png')],
-      [image('data:image/png;base64,!!!!')], [image('data:image/png;base64,' + Buffer.alloc(MAX_DIARY_IMAGE_BYTES + 1).toString('base64'))]]) {
+      [image('data:image/png;base64,!!!!')]]) {
       assert.equal((await request('/api/diary', 'POST', { ...input, images: invalid })).status, 400)
     }
+    // Uploaded photos above the 1 MB compression target remain valid (e.g. legacy data).
+    const uncompressedPhoto = image('data:image/png;base64,' + Buffer.alloc(MAX_DIARY_IMAGE_BYTES + 1).toString('base64'))
+    assert.equal((await request('/api/diary', 'POST', { ...input, images: [uncompressedPhoto] })).status, 201)
     const edited = await request(`/api/diary/${id}`, 'PUT', { ...input, content: 'Обновлено', images: [attachments[1]] })
     assert.deepEqual(edited.body.images, [attachments[1]])
     const legacyEdit = await request(`/api/diary/${id}`, 'PUT', { date: input.date, content: 'Без поля images' })

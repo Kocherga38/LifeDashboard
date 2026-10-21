@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { prepareDiaryImage } from '../src/diary-images.js'
+import { prepareDiaryAttachment, prepareDiaryImage } from '../src/diary-images.js'
 import { MAX_DIARY_IMAGE_BYTES, validateDiaryImages } from '../shared/diary.js'
 
 type Encoding = { type: string; quality?: number; width: number; height: number }
@@ -46,6 +46,24 @@ async function withCanvas(
 
 const largePhoto = () => new File([new Uint8Array(MAX_DIARY_IMAGE_BYTES + 1)], 'photo.png', { type: 'image/png' })
 const blob = (type: string, bytes = 100) => new Blob([new Uint8Array(bytes)], { type })
+
+test('Diary file uploads have no per-file or combined size restriction', async () => {
+  const bigFile = new File([new Uint8Array(21 * 1024 * 1024)], 'recording.wav', { type: 'audio/wav' })
+  await withCanvas(() => { throw new Error('Unexpected canvas call') }, async () => {
+    const attachment = await prepareDiaryAttachment(bigFile)
+    const many = [attachment, { ...attachment, id: 'second' }, { ...attachment, id: 'third' }]
+    // One attachment exceeds the old 20 MB cap; together they exceed the old 48 MB cap.
+    assert.deepEqual(validateDiaryImages(many), many)
+  })
+})
+
+test('Diary image source can exceed the old 30 MB input limit', async () => {
+  await withCanvas(() => blob('image/webp', 100), async () => {
+    const image = new File(['small'], 'large.png', { type: 'image/png' })
+    Object.defineProperty(image, 'size', { value: 31 * 1024 * 1024 })
+    assert.match((await prepareDiaryImage(image)).dataUrl, /^data:image\/webp;base64,/)
+  })
+})
 
 test('Diary photos fall back to JPEG when WebP encoding silently produces oversized PNG', async () => {
   const attempts: Encoding[] = []
