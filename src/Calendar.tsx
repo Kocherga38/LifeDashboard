@@ -577,7 +577,7 @@ export default function Calendar() {
                 <button type="button" className="secondary" aria-label="Закрыть заметку" disabled={noteSaving} onClick={() => setNoteDate(null)}>×</button>
               </div>
               <textarea autoFocus aria-label="Текст распорядка" value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)}
-                maxLength={20000} rows={14} placeholder={'09:00 — подъём\\n10:00 — английский\\n12:00 — музыка'} />
+                maxLength={20000} rows={14} placeholder={'09:00 — подъём\n10:00 — английский\n12:00 — музыка'} />
               {noteError && <div className="message error" role="alert">{noteError}</div>}
               <div className="form-actions">
                 <button disabled={noteSaving}>{noteSaving ? 'Сохраняю…' : 'Сохранить'}</button>
@@ -650,12 +650,11 @@ export default function Calendar() {
                   {isToday && <span className="today-chip">сегодня</span>}
                 </div>
 
-                {dayNotes[date] && (
-                  <button type="button" className="calendar-day-note-preview" onClick={() => openDayNote(date)} aria-label={`Открыть распорядок на ${date}`}>
-                    <strong>Распорядок</strong>
-                    <span>{dayNotes[date]}</span>
-                  </button>
-                )}
+                <button type="button" className={`calendar-day-note-preview ${dayNotes[date] ? 'has-note' : ''}`}
+                  onClick={() => openDayNote(date)} aria-label={`Открыть распорядок на ${date}`}>
+                  <strong>{dayNotes[date] ? '✎ Распорядок' : '＋ Распорядок'}</strong>
+                  {dayNotes[date] && <span>{dayNotes[date]}</span>}
+                </button>
                 <div className="calendar-events">{events.filter((entry) => entry.date === date).sort((a, b) => a.time.localeCompare(b.time)).map((entry) => <button key={`${entry.id}:${entry.date}`} className="calendar-event" onClick={() => openEvent(date, entry)} title={[entry.place, entry.note, entry.reflection].filter(Boolean).join(" · ")}><strong>{entry.time || "◷"} {entry.title}</strong>{entry.recurrence && <small>↻ {eventRepeatLabel(entry.recurrence)}</small>}{entry.place && <small>{entry.place}</small>}{entry.reflection && <small>Есть заметка после ↗</small>}</button>)}</div>
                 <div className="task-list">
                   {items.map((task) => {
@@ -746,7 +745,7 @@ export default function Calendar() {
                     </div>
                   </form>
                 ) : (
-                  <div className="calendar-add-actions"><button className="add-task-button" onClick={() => beginAdd(date)}><span>＋</span> Задача</button><button className="add-task-button" onClick={() => openEvent(date)}>＋ Событие</button>{!dayNotes[date] && <button className="add-task-button" onClick={() => openDayNote(date)}>＋ Распорядок</button>}</div>
+                  <div className="calendar-add-actions"><button className="add-task-button" onClick={() => beginAdd(date)}><span>＋</span> Задача</button><button className="add-task-button" onClick={() => openEvent(date)}>＋ Событие</button></div>
                 )}
               </article>
             )

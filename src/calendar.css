@@ -593,12 +593,14 @@
   margin-bottom: 10px;
   padding: 9px;
   text-align: left;
-  background: #202b24;
-  border: 1px solid #526e53;
+  background: transparent;
+  border: 1px dashed #455248;
   border-radius: 9px;
-  color: #c9e2c0;
+  color: #a5b99c;
   font-size: 11px;
 }
+.calendar-day-note-preview:hover { border-color: #8bb278; background: #1c2a20; }
+.calendar-day-note-preview.has-note { background: #202b24; border: 1px solid #526e53; color: #c9e2c0; }
 .calendar-day-note-preview strong { font-size: 11px; }
 .calendar-day-note-preview span {
   color: #b4c7b1;
