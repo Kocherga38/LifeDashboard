@@ -99,6 +99,29 @@ export function createPlanningApi(db: DB) {
       res.status(204).end()
     })
   }
+  // One free-form text note per calendar day, independent of tasks and events.
+  app.get('/api/calendar-day-notes', async (req, res) => {
+    const { from, to } = req.query
+    if (!validDate(from) || !validDate(to) || from > to) throw new Error('Укажи корректный период.')
+    const rows = (await db.query(`SELECT to_char(note_date,'YYYY-MM-DD') AS date,content
+      FROM calendar_day_notes WHERE note_date BETWEEN $1::date AND $2::date ORDER BY note_date`, [from, to])).rows
+    res.json(rows)
+  })
+  app.put('/api/calendar-day-notes/:date', async (req, res) => {
+    const date = String(req.params.date)
+    const content = req.body?.content
+    if (!validDate(date) || typeof content !== 'string' || content.length > 20000)
+      throw new Error('Проверь дату и текст заметки (не больше 20 000 символов).')
+    if (!content.trim()) {
+      await db.query('DELETE FROM calendar_day_notes WHERE note_date=$1::date', [date])
+      res.json({ date, content: '' })
+      return
+    }
+    const row = (await db.query(`INSERT INTO calendar_day_notes(note_date,content) VALUES($1::date,$2)
+      ON CONFLICT(note_date) DO UPDATE SET content=EXCLUDED.content,updated_at=NOW()
+      RETURNING to_char(note_date,'YYYY-MM-DD') AS date,content`, [date, content])).rows[0]
+    res.json(row)
+  })
   // An agenda is intentionally separate from tasks and events: no completion state or duration.
   const routineColumns = `id,to_char(routine_date,'YYYY-MM-DD') AS date,title,routine_time AS time,recurrence`
   const routineInput = (raw: Record<string, unknown> | undefined) => {

@@ -42,6 +42,20 @@ test('события, смены, свободная еда, разговоры 
     assert.equal((await request('/api/daily-routine?date=2026-09-30')).body.length, 0)
     assert.equal((await request(`/api/daily-routine/${routine.body.id}`, 'DELETE')).status, 204)
 
+    assert.deepEqual((await request('/api/calendar-day-notes?from=2026-09-28&to=2026-09-29')).body, [])
+    const noteText = '09:00 — завтрак\\n10:00 — японский'
+    const dayNote = await request('/api/calendar-day-notes/2026-09-28', 'PUT', { content: noteText })
+    assert.equal(dayNote.status, 200)
+    assert.equal(dayNote.body.content, noteText)
+    assert.deepEqual((await request('/api/calendar-day-notes?from=2026-09-28&to=2026-09-29')).body, [
+      { date: '2026-09-28', content: noteText }
+    ])
+    assert.equal((await request('/api/calendar-day-notes/2026-09-28', 'PUT', { content: 'Новый текст' })).body.content, 'Новый текст')
+    assert.equal((await request('/api/calendar-day-notes/2026-02-30', 'PUT', { content: 'Ошибка' })).status, 400)
+    assert.equal((await request('/api/calendar-day-notes/2026-09-28', 'PUT', { content: ' ' })).body.content, '')
+    assert.deepEqual((await request('/api/calendar-day-notes?from=2026-09-28&to=2026-09-29')).body, [])
+    await request('/api/calendar-day-notes/2026-09-28', 'PUT', { content: noteText })
+
     const shift = await request('/api/planned-shifts', 'POST', { date: '2026-09-27', expectedPay: 4600, note: 'Склад' })
     assert.equal(shift.status, 201)
     assert.equal(shift.body.expectedPay, 4600)
@@ -63,6 +77,7 @@ test('события, смены, свободная еда, разговоры 
     assert.deepEqual((await request('/api/finance-settings')).body, settings)
     const backup = (await request('/api/export')).body
     assert.equal(backup.calendar_events[0].title, 'Speaking Club')
+    assert.equal(backup.calendar_day_notes[0].content, noteText)
     assert.equal(backup.planned_shifts.length, 1)
     assert.equal(backup.meal_notes.length, 1)
     assert.equal(backup.speaking_sessions.length, 1)

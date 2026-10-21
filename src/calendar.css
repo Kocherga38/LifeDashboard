@@ -584,20 +584,65 @@
   grid-template-columns: 1fr;
 }
 
-/* Compact daily agenda: deliberately a list rather than a timeline. */
-.routine { max-width: 760px; display: grid; gap: 16px; }
-.routine-navigation { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.routine-navigation input { min-width: 155px; }
-.routine-items { display: grid; gap: 7px; }
-.routine-item { display: flex; align-items: center; gap: 12px; padding: 11px 13px; border: 1px solid #303745; border-radius: 10px; background: #181c24; }
-.routine-item time { flex: 0 0 55px; color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; }
-.routine-item-content { display: flex; flex: 1; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; overflow-wrap: anywhere; }
-.routine-item button { padding: 5px 9px; flex: 0 0 auto; }
-.routine-add { justify-self: start; }
-.routine-form { display: grid; gap: 12px; }
-.routine-form label { display: grid; gap: 5px; }
-@media (max-width: 480px) {
-  .routine-item { gap: 7px; padding: 9px; }
-  .routine-item time { flex-basis: 46px; font-size: 12px; }
-  .routine-item button { padding: 5px 7px; }
+
+/* A plain, free-form note attached directly to a calendar day. */
+.calendar-day-note-preview {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 9px;
+  text-align: left;
+  background: #202b24;
+  border: 1px solid #526e53;
+  border-radius: 9px;
+  color: #c9e2c0;
+  font-size: 11px;
+}
+.calendar-day-note-preview strong { font-size: 11px; }
+.calendar-day-note-preview span {
+  color: #b4c7b1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+.calendar-day-note-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  padding: 18px;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 8, 7, .74);
+}
+.calendar-day-note-dialog {
+  width: min(100%, 720px);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  padding: 22px;
+  border-radius: 14px;
+  border: 1px solid #465d4b;
+  background: #18221d;
+  box-shadow: 0 20px 80px #0009;
+}
+.calendar-day-note-dialog form { display: grid; gap: 15px; }
+.calendar-day-note-heading { display: flex; gap: 14px; justify-content: space-between; align-items: start; }
+.calendar-day-note-heading h2 { font-size: 20px; margin: 0; }
+.calendar-day-note-heading button { flex: 0 0 auto; }
+.calendar-day-note-dialog textarea {
+  width: 100%;
+  min-height: 300px;
+  padding: 13px;
+  resize: vertical;
+  line-height: 1.6;
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .calendar-day-note-dialog { padding: 15px; }
+  .calendar-day-note-heading h2 { font-size: 17px; }
+  .calendar-day-note-dialog textarea { min-height: 230px; }
 }

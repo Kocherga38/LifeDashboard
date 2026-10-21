@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import { api, today } from './api'
 import { eventRepeatLabel } from '../shared/events'
 import type { CalendarEvent, EventRecurrence } from '../shared/events'
-import DailyRoutine from './DailyRoutine'
 import './calendar.css'
 import './planning.css'
 
@@ -11,6 +10,8 @@ type Recurrence =
   | { type: 'interval'; intervalDays: number }
   | { type: 'weekdays'; weekdays: number[] }
   | null
+
+type DayNote = { date: string; content: string }
 
 type Task = {
   id: string
@@ -224,13 +225,17 @@ function EventRepeatControls({ value, onChange }: {
 }
 
 export default function Calendar() {
-  const [routineView, setRoutineView] = useState(false)
   const [view, setView] = useState<View>('week')
   const [anchor, setAnchor] = useState(() => parseDate(today()))
   const [tasks, setTasks] = useState<Task[]>([])
   const statusLocks = useRef(new Set<string>())
   const [updatingTasks, setUpdatingTasks] = useState(new Set<string>())
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [dayNotes, setDayNotes] = useState<Record<string, string>>({})
+  const [noteDate, setNoteDate] = useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteError, setNoteError] = useState('')
   const [eventForm, setEventForm] = useState(emptyEvent)
   const [eventEditor, setEventEditor] = useState(false)
   const eventEditorRef = useRef<HTMLFormElement>(null)
@@ -309,8 +314,18 @@ export default function Calendar() {
     let alive = true
     setLoading(true)
     setError('')
-    Promise.all([api<Task[]>(`/api/tasks?from=${iso(from)}&to=${iso(to)}`), api<CalendarEvent[]>(`/api/events?from=${iso(from)}&to=${iso(to)}`)])
-      .then(([rows, entries]) => { if (alive) { setTasks(rows); setEvents(entries) } })
+    Promise.all([
+      api<Task[]>(`/api/tasks?from=${iso(from)}&to=${iso(to)}`),
+      api<CalendarEvent[]>(`/api/events?from=${iso(from)}&to=${iso(to)}`),
+      api<DayNote[]>(`/api/calendar-day-notes?from=${iso(from)}&to=${iso(to)}`)
+    ])
+      .then(([rows, entries, notes]) => {
+        if (alive) {
+          setTasks(rows)
+          setEvents(entries)
+          setDayNotes(Object.fromEntries(notes.map((note) => [note.date, note.content])))
+        }
+      })
       .catch((e) => alive && setError(e.message))
       .finally(() => alive && setLoading(false))
     return () => {
@@ -327,6 +342,37 @@ export default function Calendar() {
     }
     return grouped
   }, [tasks])
+
+  function openDayNote(date: string) {
+    setNoteDate(date)
+    setNoteDraft(dayNotes[date] ?? '')
+    setNoteError('')
+  }
+
+  async function saveDayNote(event: FormEvent) {
+    event.preventDefault()
+    if (!noteDate || noteSaving) return
+    setNoteSaving(true)
+    setNoteError('')
+    try {
+      const saved = await api<DayNote>(`/api/calendar-day-notes/${noteDate}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: noteDraft })
+      })
+      setDayNotes((current) => {
+        const next = { ...current }
+        if (saved.content.trim()) next[saved.date] = saved.content
+        else delete next[saved.date]
+        return next
+      })
+      setNoteDate(null)
+    } catch (e) {
+      setNoteError((e as Error).message)
+    } finally {
+      setNoteSaving(false)
+    }
+  }
 
   function resetAdd() {
     setAddingDate(null)
@@ -513,16 +559,36 @@ export default function Calendar() {
           <h1>Календарь</h1>
           <p className="muted">Задачи на неделю и месяц. Разовые и повторяющиеся.</p>
         </div>
-        {!routineView && <button className="secondary" onClick={() => openEvent(today())}>+ Событие</button>}
+        <button className="secondary" onClick={() => openEvent(today())}>+ Событие</button>}
         <div className="calendar-view-switch" aria-label="Вид календаря">
-          <button className={!routineView && view === 'week' ? 'active' : ''} onClick={() => { setRoutineView(false); setView('week') }}>Неделя</button>
-          <button className={!routineView && view === 'month' ? 'active' : ''} onClick={() => { setRoutineView(false); setView('month') }}>Месяц</button>
-          <button className={routineView ? 'active' : ''} onClick={() => { setRoutineView(true); setEventEditor(false) }}>Распорядок дня</button>
+          <button className={view === 'week' ? 'active' : ''} onClick={() => setView('week')}>Неделя</button>
+          <button className={view === 'month' ? 'active' : ''} onClick={() => setView('month')}>Месяц</button>
         </div>
       </header>
 
+      {noteDate && (
+        <div className="calendar-day-note-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !noteSaving) setNoteDate(null)
+        }}>
+          <section className="calendar-day-note-dialog" role="dialog" aria-modal="true" aria-labelledby="calendar-day-note-title">
+            <form onSubmit={(event) => void saveDayNote(event)}>
+              <div className="calendar-day-note-heading">
+                <h2 id="calendar-day-note-title">Распорядок · {parseDate(noteDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</h2>
+                <button type="button" className="secondary" aria-label="Закрыть заметку" disabled={noteSaving} onClick={() => setNoteDate(null)}>×</button>
+              </div>
+              <textarea autoFocus aria-label="Текст распорядка" value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)}
+                maxLength={20000} rows={14} placeholder={'09:00 — подъём\\n10:00 — английский\\n12:00 — музыка'} />
+              {noteError && <div className="message error" role="alert">{noteError}</div>}
+              <div className="form-actions">
+                <button disabled={noteSaving}>{noteSaving ? 'Сохраняю…' : 'Сохранить'}</button>
+                <button type="button" className="secondary" disabled={noteSaving} onClick={() => setNoteDate(null)}>Отмена</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
       {error && <div className="message error">{error}</div>}
-      {!routineView && eventEditor && <form className="card calendar-event-form" ref={eventEditorRef} onSubmit={(e) => void saveEvent(e)}>
+      {eventEditor && <form className="card calendar-event-form" ref={eventEditorRef} onSubmit={(e) => void saveEvent(e)}>
         <h2>{eventId ? 'Изменить событие' : 'Новое событие'}</h2>
         {eventId && (eventWasRecurring || eventForm.recurrence) && <p className="muted">Изменения применятся ко всей серии, включая прошедшие события. Заметки общие для всей серии.</p>}
         <div className="planning-fields"><label>Название<input required maxLength={200} value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} /></label><label>{eventForm.recurrence ? 'Дата начала' : 'Дата'}<input required type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} /></label><label>Время<input type="time" value={eventForm.time} onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })} /></label><label>Место<input maxLength={200} value={eventForm.place} onChange={(e) => setEventForm({ ...eventForm, place: e.target.value })} /></label></div>
@@ -533,7 +599,6 @@ export default function Calendar() {
         <div className="form-actions"><button disabled={saving || (eventForm.recurrence?.type === 'weekdays' && !eventForm.recurrence.weekdays.length)}>{eventId && (eventWasRecurring || eventForm.recurrence) ? 'Сохранить всю серию' : 'Сохранить'}</button><button type="button" disabled={saving} className="secondary" onClick={() => setEventEditor(false)}>Отмена</button>{eventId && <button type="button" disabled={saving} className="secondary" onClick={() => void removeEvent()}>{eventWasRecurring ? 'Удалить всю серию' : 'Удалить'}</button>}</div>
       </form>}
 
-      {routineView ? <DailyRoutine /> : <>
       <section className="calendar-toolbar" aria-label="Навигация календаря">
         <div className="calendar-nav">
           <button className="secondary calendar-arrow" onClick={() => move(-1)} aria-label="Назад">←</button>
@@ -585,6 +650,12 @@ export default function Calendar() {
                   {isToday && <span className="today-chip">сегодня</span>}
                 </div>
 
+                {dayNotes[date] && (
+                  <button type="button" className="calendar-day-note-preview" onClick={() => openDayNote(date)} aria-label={`Открыть распорядок на ${date}`}>
+                    <strong>Распорядок</strong>
+                    <span>{dayNotes[date]}</span>
+                  </button>
+                )}
                 <div className="calendar-events">{events.filter((entry) => entry.date === date).sort((a, b) => a.time.localeCompare(b.time)).map((entry) => <button key={`${entry.id}:${entry.date}`} className="calendar-event" onClick={() => openEvent(date, entry)} title={[entry.place, entry.note, entry.reflection].filter(Boolean).join(" · ")}><strong>{entry.time || "◷"} {entry.title}</strong>{entry.recurrence && <small>↻ {eventRepeatLabel(entry.recurrence)}</small>}{entry.place && <small>{entry.place}</small>}{entry.reflection && <small>Есть заметка после ↗</small>}</button>)}</div>
                 <div className="task-list">
                   {items.map((task) => {
@@ -675,7 +746,7 @@ export default function Calendar() {
                     </div>
                   </form>
                 ) : (
-                  <div className="calendar-add-actions"><button className="add-task-button" onClick={() => beginAdd(date)}><span>＋</span> Задача</button><button className="add-task-button" onClick={() => openEvent(date)}>＋ Событие</button></div>
+                  <div className="calendar-add-actions"><button className="add-task-button" onClick={() => beginAdd(date)}><span>＋</span> Задача</button><button className="add-task-button" onClick={() => openEvent(date)}>＋ Событие</button>{!dayNotes[date] && <button className="add-task-button" onClick={() => openDayNote(date)}>＋ Распорядок</button>}</div>
                 )}
               </article>
             )
@@ -683,7 +754,6 @@ export default function Calendar() {
         </section>
         </div>
       )}
-      </>}
     </main>
   )
 }
