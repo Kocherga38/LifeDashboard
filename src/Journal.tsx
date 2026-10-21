@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts'
-import { journals, nutrients, nutrientLabels, validateEntry } from '../shared/journals'
+import { journals, nutrients, nutrientLabels, validateEntry, manualMealFields, mealNutrientTotal } from '../shared/journals'
 import type { Kind, Entry, Field } from '../shared/journals'
 import { api, today, money, num } from './api'
 import MealNotes from './MealNotes'
@@ -54,6 +54,7 @@ export default function Journal({ kind }: { kind: Kind }) {
   const lock = useRef(false),
     editor = useRef<HTMLDivElement>(null)
   const [mealDetails, setMealDetails] = useState(false)
+  const [mealMode, setMealMode] = useState<'product' | 'manual'>('product')
   const [portions, setPortions] = useState<Record<string, { label: string; grams: number }[]>>(() => {
     try { return JSON.parse(localStorage.getItem('trellis-product-portions-v1') || '{}') } catch { return {} }
   })
@@ -131,7 +132,7 @@ export default function Journal({ kind }: { kind: Kind }) {
   const mealTotals = Object.fromEntries(
     nutrients.map((n) => [
       n,
-      dailyMeals.reduce((s, r) => s + (value(r, n) * value(r, 'grams')) / 100, 0)
+      dailyMeals.reduce((s, r) => s + mealNutrientTotal(r, n), 0)
     ])
   )
   const complete = selected.filter(completeShift)
@@ -209,6 +210,16 @@ export default function Journal({ kind }: { kind: Kind }) {
       return next
     })
   }
+  function switchMealMode(mode: 'product' | 'manual') {
+    setMealMode(mode)
+    setError('')
+    setMealDetails(false)
+    setSelectedPortion('')
+    setPortionCount('1')
+    setForm((current) => ({
+      ...current, name: '', grams: '', kcal: '', protein: '', fat: '', carbs: '', fiber: '', note: ''
+    }))
+  }
   function reset() {
     setEditId(null)
     setForm(makeForm(kind))
@@ -218,6 +229,7 @@ export default function Journal({ kind }: { kind: Kind }) {
     setExtraMeasurements({})
   }
   function fill(row: Entry, repeat = false) {
+    if (kind === 'meals') setMealMode(row.mode === 'manual' ? 'manual' : 'product')
     setEditId(repeat ? null : row.id)
     setSelectedPortion('')
     setPortionCount('1')
@@ -226,7 +238,7 @@ export default function Journal({ kind }: { kind: Kind }) {
     setExtraMeasurements(Object.fromEntries(Object.entries((row.extras && typeof row.extras === 'object' && !Array.isArray(row.extras) ? row.extras : {}) as Record<string, unknown>).map(([k, v]) => [k, String(v)])))
     setForm(
       Object.fromEntries(
-        meta.fields.map((f) => [
+        (kind === 'meals' && row.mode === 'manual' ? manualMealFields : meta.fields).map((f) => [
           f.key,
           repeat && f.key === 'date'
             ? today()
@@ -246,7 +258,7 @@ export default function Journal({ kind }: { kind: Kind }) {
       data = validateEntry(
         kind,
         { ...Object.fromEntries(
-          meta.fields.map((f) => [
+          (kind === 'meals' && mealMode === 'manual' ? manualMealFields : meta.fields).map((f) => [
             f.key,
             f.type === 'number'
               ? form[f.key] === ''
@@ -259,7 +271,8 @@ export default function Journal({ kind }: { kind: Kind }) {
                     .map(Number)
                 : form[f.key]
           ])
-        ), extras: kind === 'measurements' ? Object.fromEntries(Object.entries(extraMeasurements).filter(([, cm]) => cm.trim()).map(([name, cm]) => [name, Number(cm.replace(',', '.'))])) : undefined }
+        ), ...(kind === 'meals' && mealMode === 'manual' ? { mode: 'manual' } : {}),
+          extras: kind === 'measurements' ? Object.fromEntries(Object.entries(extraMeasurements).filter(([, cm]) => cm.trim()).map(([name, cm]) => [name, Number(cm.replace(',', '.'))])) : undefined }
       )
       if (kind === 'measurements') {
         const extras: Record<string, number> = {}
@@ -272,7 +285,7 @@ export default function Journal({ kind }: { kind: Kind }) {
       }
     } catch (e) {
       setError((e as Error).message)
-      if (kind === 'meals') setMealDetails(true)
+      if (kind === 'meals' && mealMode === 'product') setMealDetails(true)
       return
     }
     lock.current = true
@@ -495,12 +508,27 @@ export default function Journal({ kind }: { kind: Kind }) {
       {ready && kind === 'meals' && <MealTemplates products={products} meals={rows} onAdded={(entries) => { setRows(current => [...entries,...current]); setDay(String(entries[0]?.date ?? today())); setNotice('Приём пищи добавлен из шаблона.') }} />}
       <section ref={editor} className={`card form-card ${editId ? 'editing' : ''}`}>
         <h2>{editId ? 'Редактировать запись' : 'Добавить запись'}</h2>
+        {kind === 'meals' && (
+          <div className="meal-mode-switch" role="group" aria-label="Способ записи питания">
+            <button type="button" className={mealMode === 'product' ? 'active' : 'secondary'}
+              disabled={disabled} onClick={() => switchMealMode('product')}>Из продукта</button>
+            <button type="button" className={mealMode === 'manual' ? 'active' : 'secondary'}
+              disabled={disabled} onClick={() => switchMealMode('manual')}>КБЖУ вручную</button>
+          </div>
+        )}
         <form onSubmit={save} noValidate>
           <div className="journal-form">
-            {meta.fields
-              .filter((f) => kind !== 'meals' || ['date', 'meal', 'name', 'grams'].includes(f.key))
+            {(kind === 'meals' && mealMode === 'manual'
+              ? manualMealFields
+              : meta.fields.filter((f) => kind !== 'meals' || ['date', 'meal', 'name', 'grams'].includes(f.key)))
               .map(renderField)}
           </div>
+          {kind === 'meals' && mealMode === 'manual' && (
+            <p className="muted meal-manual-hint">
+              Введи КБЖУ всего блюда или приёма пищи. Граммы и продукты из справочника не нужны.
+              Клетчатка остаётся неизвестной и не прибавляется к дневному итогу.
+            </p>
+          )}
           {kind === 'measurements' && (
             <div className="journal-custom-measurements">
               <h3>Дополнительные замеры</h3>
@@ -539,7 +567,7 @@ export default function Journal({ kind }: { kind: Kind }) {
               )}
             </div>
           )}
-          {kind === 'meals' && (
+          {kind === 'meals' && mealMode === 'product' && (
             <>
               {products.some(p => p.name === selectedProductName) && (
                 <div className="product-portions">
@@ -606,7 +634,7 @@ export default function Journal({ kind }: { kind: Kind }) {
             )}
           </div>
         </form>
-        {kind === 'meals' && (
+        {kind === 'meals' && mealMode === 'product' && (
           <small>
             Нутриенты указаны на 100 г. Их значения сохраняются с приёмом пищи: изменение
             справочника не перепишет историю.
@@ -676,6 +704,7 @@ export default function Journal({ kind }: { kind: Kind }) {
       {ready && (
         <section className="card journal-table">
           <h2>История · {selected.length}</h2>
+          {kind === 'meals' && <p className="muted">КБЖУ в таблице показано за всю порцию. Ручные записи отмечены отдельно.</p>}
           {selected.length === 0 ? (
             <p className="muted">
               Записей пока нет. Добавь первую запись выше.
@@ -686,10 +715,12 @@ export default function Journal({ kind }: { kind: Kind }) {
                 <thead>
                   <tr>
                     {meta.fields.map((f) => (
-                      <th key={f.key}>{f.label.split(':')[0]}</th>
+                      <th key={f.key}>{kind === 'meals' && f.key === 'name' ? 'Блюдо / продукт' :
+                        kind === 'meals' && nutrients.some((n) => n === f.key)
+                          ? f.label.replace(' / 100 г', '')
+                          : f.label.split(':')[0]}</th>
                     ))}
                     {kind === 'measurements' && <th>Другие замеры, см</th>}
-                    {kind === 'meals' && <th>Ккал в порции</th>}
                     {kind === 'shifts' && <th>Чистыми</th>}
                     {kind === 'workouts' && <th>Всего</th>}
                     <th>Действия</th>
@@ -703,8 +734,12 @@ export default function Journal({ kind }: { kind: Kind }) {
                           key={f.key}
                           className={f.type === 'textarea' ? 'composition-cell' : f.key === 'note' ? 'note-cell' : ''}
                         >
-                          {r[f.key] === null || r[f.key] === undefined || r[f.key] === ''
-                            ? '—'
+                          {kind === 'meals' && nutrients.some((n) => n === f.key)
+                            ? (r[f.key] === null || r[f.key] === undefined ? '—' : num(mealNutrientTotal(r, f.key as (typeof nutrients)[number])))
+                            : kind === 'meals' && f.key === 'name' && r.mode === 'manual'
+                              ? `${String(r.name)} · вручную`
+                              : r[f.key] === null || r[f.key] === undefined || r[f.key] === ''
+                                ? '—'
                             : f.type === 'textarea'
                               ? (
                                 <details>
@@ -721,9 +756,6 @@ export default function Journal({ kind }: { kind: Kind }) {
                       ))}
                       {kind === 'measurements' && (
                         <td>{Object.entries((r.extras && typeof r.extras === 'object' && !Array.isArray(r.extras) ? r.extras : {}) as Record<string, unknown>).map(([name, cm]) => `${name}: ${num(Number(cm))}`).join(', ') || '—'}</td>
-                      )}
-                      {kind === 'meals' && (
-                        <td>{num((value(r, 'kcal') * value(r, 'grams')) / 100)}</td>
                       )}
                       {kind === 'shifts' && (
                         <td>{completeShift(r) ? money(shiftNet(r)) : 'Не все затраты'}</td>

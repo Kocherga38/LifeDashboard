@@ -32,7 +32,8 @@ export default function MealTemplates({ products, meals, onAdded }: Props) {
   const totals = (list: Item[]) => Object.fromEntries(nutrients.map(n => [
     n, list.reduce((sum, item) => sum + Number(lookup.get(item.name)?.[n] ?? 0) * item.grams / 100, 0)
   ]))
-  const candidateEntries = meals.filter(m => m.date === sourceDate && m.meal === sourceMeal)
+  // Шаблоны основаны на продуктах с известной граммовкой.
+  const candidateEntries = meals.filter(m => m.date === sourceDate && m.meal === sourceMeal && m.mode !== 'manual')
   function startEdit(t: Template) {
     setEditing(t.id); setTitle(t.title); setItems(t.items.map(i=>({...i})))
   }

@@ -21,6 +21,20 @@ const nutrientFields: Field[] = nutrients.map((key, i) => ({
   min: 0,
   max: 1000
 }))
+// Здесь КБЖУ относится к целому блюду, а не к 100 граммам.
+export const manualMealFields: Field[] = [
+  date,
+  { key: 'meal', label: 'Приём пищи', options: ['Завтрак', 'Обед', 'Ужин', 'Перекус'] },
+  { key: 'name', label: 'Название блюда' },
+  ...nutrients.slice(0, 4).map((key, i) => ({
+    key,
+    label: nutrientLabels[i],
+    type: 'number' as const,
+    min: 0,
+    max: 100000
+  })),
+  note
+]
 export const journals: Record<Kind, { title: string; description: string; fields: Field[] }> = {
   shifts: {
     title: 'Смены',
@@ -75,7 +89,7 @@ export const journals: Record<Kind, { title: string; description: string; fields
   },
   meals: {
     title: 'Питание',
-    description: 'Выбери продукт, укажи массу — калории, БЖУ и клетчатка пересчитаются.',
+    description: 'Выбери продукт и массу или введи готовое КБЖУ блюда вручную.',
     fields: [
       date,
       { key: 'time', label: 'Время', type: 'time', optional: true },
@@ -101,6 +115,10 @@ export const journals: Record<Kind, { title: string; description: string; fields
 export function isKind(value: string): value is Kind {
   return Object.hasOwn(journals, value)
 }
+export function mealNutrientTotal(entry: Record<string, unknown>, nutrient: (typeof nutrients)[number]): number {
+  const amount = Number(entry[nutrient] ?? 0)
+  return entry.mode === 'manual' ? amount : (amount * Number(entry.grams ?? 0)) / 100
+}
 export function validDate(value: unknown): value is string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const year = Number(value.slice(0, 4))
@@ -115,8 +133,11 @@ export function validDate(value: unknown): value is string {
 export function validateEntry(kind: Kind, raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== 'object') throw new Error('Не переданы данные записи.')
   const input = raw as Record<string, unknown>
+  if (kind === 'meals' && input.mode !== undefined && input.mode !== 'product' && input.mode !== 'manual')
+    throw new Error('Некорректный способ ввода питания.')
+  const manualMeal = kind === 'meals' && input.mode === 'manual'
   const output: Record<string, unknown> = {}
-  for (const field of journals[kind].fields) {
+  for (const field of manualMeal ? manualMealFields : journals[kind].fields) {
     const value = input[field.key]
     if (value === '' || value === null || value === undefined) {
       if (!field.optional) throw new Error(`Заполни поле «${field.label}».`)
@@ -153,6 +174,12 @@ export function validateEntry(kind: Kind, raw: unknown): Record<string, unknown>
     if (field.options && !field.options.includes(String(value)))
       throw new Error(`Выбери значение «${field.label}».`)
     output[field.key] = typeof value === 'string' ? value.trim() : value
+  }
+  if (manualMeal) {
+    output.mode = 'manual'
+    output.grams = null
+    output.fiber = null
+    output.time = ''
   }
   if (kind === 'measurements') {
     const extras = input.extras ?? {}

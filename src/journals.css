@@ -382,3 +382,8 @@ summary {
 .habit-actions .icon-button {
   padding: 5px 7px;
 }
+
+.meal-mode-switch{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 20px}
+.meal-mode-switch button{border:1px solid #343d49}
+.meal-mode-switch button.active{background:var(--accent);color:#17200f}
+.meal-manual-hint{margin:14px 0 0;line-height:1.6;font-size:13px}
