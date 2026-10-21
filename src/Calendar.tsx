@@ -559,7 +559,7 @@ export default function Calendar() {
           <h1>Календарь</h1>
           <p className="muted">Задачи на неделю и месяц. Разовые и повторяющиеся.</p>
         </div>
-        <button className="secondary" onClick={() => openEvent(today())}>+ Событие</button>}
+        <button className="secondary" onClick={() => openEvent(today())}>+ Событие</button>
         <div className="calendar-view-switch" aria-label="Вид календаря">
           <button className={view === 'week' ? 'active' : ''} onClick={() => setView('week')}>Неделя</button>
           <button className={view === 'month' ? 'active' : ''} onClick={() => setView('month')}>Месяц</button>
