@@ -343,9 +343,26 @@ export function createPersonalApi(db: DB) {
     res.status(204).end()
   })
 
-  app.get('/api/habits', async (_req, res) =>
-    res.json((await db.query(`SELECT id,name,created_at AS "createdAt" FROM habits ORDER BY created_at,name`)).rows)
-  )
+  app.get('/api/habits', async (_req, res) => {
+    const [items, setting] = await Promise.all([
+      db.query('SELECT id,name,created_at AS "createdAt" FROM habits ORDER BY created_at,name,id'),
+      db.query("SELECT value FROM app_settings WHERE key='habit-order'")
+    ])
+    const positions = new Map<string, number>()
+    const saved = setting.rows[0]?.value
+    if (Array.isArray(saved)) {
+      saved.forEach((id, index) => {
+        if (typeof id === 'string' && !positions.has(id)) positions.set(id, index)
+      })
+    }
+    items.rows.sort((a, b) => {
+      const aPosition = positions.get(a.id), bPosition = positions.get(b.id)
+      if (aPosition === undefined) return bPosition === undefined ? 0 : 1
+      if (bPosition === undefined) return -1
+      return aPosition - bPosition
+    })
+    res.json(items.rows)
+  })
   app.post('/api/habits', async (req, res) => {
     const name = req.body?.name
     if (!textValid(name, 120)) throw new Error('Введи название трекера.')
@@ -354,6 +371,20 @@ export function createPersonalApi(db: DB) {
       [randomUUID(), name.trim()]
     )).rows[0]
     res.status(201).json(row)
+  })
+  app.put('/api/habits/order', async (req, res) => {
+    const order: unknown = req.body?.order
+    if (!Array.isArray(order) || order.some((id) => typeof id !== 'string' || !idValid(id)) || new Set(order).size !== order.length)
+      throw new Error('Некорректный порядок трекеров.')
+    const existing = (await db.query('SELECT id FROM habits')).rows
+    const ids = new Set(existing.map((row) => row.id))
+    if (order.length !== ids.size || order.some((id) => !ids.has(id)))
+      throw new Error('Список трекеров изменился. Обнови страницу и попробуй ещё раз.')
+    await db.query(
+      "INSERT INTO app_settings(key,value) VALUES('habit-order',$1::jsonb) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",
+      [JSON.stringify(order)]
+    )
+    res.json({ order })
   })
   app.put('/api/habits/:id', async (req, res) => {
     const id = String(req.params.id), name = req.body?.name
