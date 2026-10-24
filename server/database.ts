@@ -134,6 +134,7 @@ export async function migrate(db: DB) {
     )
     await client.query(`ALTER TABLE task_occurrences ADD COLUMN IF NOT EXISTS moved_to_date DATE`)
     await client.query(`ALTER TABLE task_occurrences ADD COLUMN IF NOT EXISTS failed BOOLEAN NOT NULL DEFAULT FALSE CHECK(NOT (completed AND failed))`)
+    await client.query(`ALTER TABLE task_occurrences ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE`)
     await client.query(`CREATE INDEX IF NOT EXISTS task_occurrences_date_idx ON task_occurrences(occurrence_date)`)
     await client.query(`CREATE INDEX IF NOT EXISTS task_occurrences_moved_date_idx ON task_occurrences(moved_to_date) WHERE moved_to_date IS NOT NULL`)
     await client.query(

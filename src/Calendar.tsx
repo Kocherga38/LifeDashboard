@@ -250,6 +250,7 @@ export default function Calendar() {
   const [repeatWeekdays, setRepeatWeekdays] = useState<number[]>([])
   const [draftColor, setDraftColor] = useState<TaskColor>('default')
   const [editing, setEditing] = useState<Task | null>(null)
+  const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDate, setEditDate] = useState('')
   const [editRepeatMode, setEditRepeatMode] = useState<RepeatMode>('none')
@@ -512,13 +513,27 @@ export default function Calendar() {
     }
   }
 
-  async function remove(task: Task) {
-    if (task.recurrence && !window.confirm(`Удалить повторяющуюся задачу «${task.title}» целиком? Выполненные и невыполненные дни останутся отдельными задачами.`)) return
+  async function remove(task: Task, confirmSeries = true) {
+    if (task.recurrence && confirmSeries && !window.confirm(`Удалить повторяющуюся задачу «${task.title}» целиком? Выполненные и невыполненные дни останутся отдельными задачами.`)) return
     const before = tasks
     setTasks((current) => current.filter((t) => t.id !== task.id))
     if (editing?.id === task.id) setEditing(null)
     try {
       await api<void>(`/api/tasks/${task.id}`, { method: 'DELETE' })
+      await loadTasks()
+    } catch (e) {
+      setTasks(before)
+      setError((e as Error).message)
+    }
+  }
+
+  async function removeOccurrence(task: Task) {
+    setDeletingTask(null)
+    const before = tasks
+    setTasks((current) => current.filter((item) => taskIdentity(item) !== taskIdentity(task)))
+    setError('')
+    try {
+      await api<void>(`/api/tasks/${task.id}/occurrences/${task.occurrenceDate ?? task.date}`, { method: 'DELETE' })
       await loadTasks()
     } catch (e) {
       setTasks(before)
@@ -566,6 +581,26 @@ export default function Calendar() {
         </div>
       </header>
 
+      {deletingTask && (
+        <div className="calendar-day-note-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setDeletingTask(null)
+        }}>
+          <section className="calendar-day-note-dialog task-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="task-delete-title">
+            <h2 id="task-delete-title">Удалить «{deletingTask.title}»?</h2>
+            <p className="muted">Повторяющаяся задача на {parseDate(deletingTask.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}. Что удалить?</p>
+            <div className="task-delete-options">
+              <button type="button" onClick={() => void removeOccurrence(deletingTask)}>Только этот день</button>
+              <button type="button" className="secondary task-delete-all" onClick={() => {
+                const task = deletingTask
+                setDeletingTask(null)
+                void remove(task, false)
+              }}>Всю серию повторений</button>
+              <button type="button" className="secondary" onClick={() => setDeletingTask(null)}>Отмена</button>
+            </div>
+            <small className="muted">При удалении серии выполненные и невыполненные дни сохранятся как отдельные задачи.</small>
+          </section>
+        </div>
+      )}
       {noteDate && (
         <div className="calendar-day-note-backdrop" onMouseDown={(event) => {
           if (event.target === event.currentTarget && !noteSaving) setNoteDate(null)
@@ -711,7 +746,7 @@ export default function Calendar() {
                         <div className="task-actions">
                           <button className="task-fail" disabled={updatingTasks.has(taskIdentity(task))} aria-pressed={task.failed} onClick={() => void setOutcome(task, false, !task.failed)} aria-label={`${task.failed ? 'Вернуть в план' : 'Отметить как не выполненную'}: ${task.title}`} title={task.failed ? 'Вернуть в план' : 'Не выполнена'}>✗</button>
                           <button className="task-edit" disabled={updatingTasks.has(taskIdentity(task))} onClick={() => beginEdit(task)} aria-label={`Редактировать задачу «${task.title}»`} title="Редактировать">✎</button>
-                          <button className="task-delete" disabled={updatingTasks.has(taskIdentity(task))} onClick={() => remove(task)} aria-label={`Удалить задачу «${task.title}»`} title={task.recurrence ? 'Удалить всё повторение' : 'Удалить'}>×</button>
+                          <button className="task-delete" disabled={updatingTasks.has(taskIdentity(task))} onClick={() => task.recurrence ? setDeletingTask(task) : void remove(task)} aria-label={`Удалить задачу «${task.title}»`} title={task.recurrence ? 'Выбрать, что удалить' : 'Удалить'}>×</button>
                         </div>
                       </div>
                     )

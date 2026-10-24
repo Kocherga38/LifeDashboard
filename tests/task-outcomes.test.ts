@@ -84,9 +84,28 @@ test('Task outcomes survive migration, recurring moves, history, export and rest
     outcome(recurringRows.find(t => t.occurrenceDate === '2026-10-09'), false, true)
     outcome(recurringRows.find(t => t.occurrenceDate === '2026-10-12'), false, false)
     await assert.rejects(db.query(`UPDATE task_occurrences SET completed=TRUE,failed=TRUE WHERE task_id=$1 AND occurrence_date='2026-10-09'`, [recurring.id]), /check constraint/)
+    // Removing one occurrence must not remove the repeating series or adjacent dates.
+    assert.equal((await request(`/api/tasks/${recurring.id}/occurrences/2026-10-10`, 'DELETE')).status, 204)
+    assert.equal((await request(`/api/tasks/${recurring.id}/occurrences/2026-10-10`, 'DELETE')).status, 204)
+    recurringRows = (await list()).filter(t => t.id === recurring.id)
+    assert.equal(recurringRows.some(t => t.occurrenceDate === '2026-10-10'), false)
+    assert.equal(recurringRows.some(t => t.occurrenceDate === '2026-10-08'), true)
+    assert.equal(recurringRows.some(t => t.occurrenceDate === '2026-10-11'), true)
+    assert.equal((await recurringSet({ completed: true, date: '2026-10-10' })).status, 404)
+    assert.equal((await request(`/api/tasks/${recurring.id}/move`, 'POST', { fromDate: '2026-10-10', toDate: '2026-10-14' })).status, 404)
+    assert.equal((await request(`/api/tasks/${recurring.id}/occurrences/2026-10-07`, 'DELETE')).status, 400)
+    assert.equal((await request(`/api/tasks/${singleId}/occurrences/2026-10-09`, 'DELETE')).status, 400)
+    const movingSeries = (await request('/api/tasks', 'POST', { title: 'Проверка исключения переноса', date: '2026-10-08', recurrence: { type: 'interval', intervalDays: 1 } })).body
+    assert.equal((await request(`/api/tasks/${movingSeries.id}/move`, 'POST', { fromDate: '2026-10-08', toDate: '2026-10-13' })).status, 200)
+    assert.equal((await request(`/api/tasks/${movingSeries.id}/occurrences/2026-10-08`, 'DELETE')).status, 204)
+    const remainingMoving = (await list()).filter(t => t.id === movingSeries.id)
+    assert.equal(remainingMoving.some(t => t.occurrenceDate === '2026-10-08'), false)
+    assert.equal(remainingMoving.some(t => t.date === '2026-10-13'), true) // 13th's normal recurrence remains
+    assert.equal((await request(`/api/tasks/${movingSeries.id}`, 'DELETE')).status, 204)
     const exported = (await request('/api/export')).body
     outcome(exported.tasks.find((t: any) => t.id === singleId), false, true)
     outcome(exported.task_occurrences.find((t: any) => t.task_id === recurring.id && String(t.occurrence_date).startsWith('2026-10-09')), false, true)
+    assert.equal(exported.task_occurrences.find((t: any) => t.task_id === recurring.id && String(t.occurrence_date).startsWith('2026-10-10')).is_deleted, true)
     assert.ok(exported.activity_log.some((entry: any) => entry.table_name === 'task_occurrences' && entry.after_data?.failed === true))
     assert.equal((await request(`/api/tasks/${recurring.id}`, 'DELETE')).status, 204)
     const preserved = (await list()).filter(t => t.title === 'Смены после изменения')

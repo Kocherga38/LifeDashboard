@@ -453,7 +453,7 @@ export function createApi(db: DB) {
             `SELECT task_id,
                     to_char(occurrence_date,'YYYY-MM-DD') AS "occurrenceDate",
                     to_char(moved_to_date,'YYYY-MM-DD') AS "movedToDate",
-                    completed,failed
+                    completed,failed,is_deleted AS "isDeleted"
              FROM task_occurrences
              WHERE occurrence_date BETWEEN $1::date AND $2::date
                 OR moved_to_date BETWEEN $1::date AND $2::date`,
@@ -473,7 +473,7 @@ export function createApi(db: DB) {
         const date = dateFromMs(ms)
         if (!occursOn(row, date)) continue
         const occurrence = occurrences.get(`${row.id}:${date}`)
-        if (occurrence?.movedToDate) continue
+        if (occurrence?.movedToDate || occurrence?.isDeleted) continue
         result.push({
           id: row.id,
           title: row.title,
@@ -490,6 +490,7 @@ export function createApi(db: DB) {
         if (
           occurrence.task_id !== row.id ||
           !occurrence.movedToDate ||
+          occurrence.isDeleted ||
           occurrence.movedToDate < String(from) ||
           occurrence.movedToDate > String(to)
         ) continue
@@ -572,11 +573,15 @@ export function createApi(db: DB) {
       if (!validDate(occurrenceDate) || !occursOn(base, occurrenceDate)) throw new Error('Некорректная дата повторяющейся задачи.')
       const savedOccurrence = (
         await db.query(
-          `SELECT to_char(moved_to_date,'YYYY-MM-DD') AS "movedToDate"
+          `SELECT to_char(moved_to_date,'YYYY-MM-DD') AS "movedToDate",is_deleted AS "isDeleted"
            FROM task_occurrences WHERE task_id=$1 AND occurrence_date=$2::date`,
           [id, occurrenceDate]
         )
       ).rows[0]
+      if (savedOccurrence?.isDeleted) {
+        res.status(404).json({ error: 'Это повторение уже удалено. Обнови календарь.' })
+        return
+      }
       const date = savedOccurrence?.movedToDate ?? occurrenceDate
       if (req.body?.date !== undefined && req.body.date !== date)
         throw new Error('Эта задача уже перенесена. Обнови календарь.')
@@ -646,10 +651,15 @@ export function createApi(db: DB) {
         `INSERT INTO task_occurrences(task_id,occurrence_date,moved_to_date)
          VALUES($1,$2::date,$3::date)
          ON CONFLICT(task_id,occurrence_date) DO UPDATE SET moved_to_date=EXCLUDED.moved_to_date
+           WHERE NOT task_occurrences.is_deleted
          RETURNING completed,failed`,
         [id, fromDate, movedToDate]
       )
     ).rows[0]
+    if (!occurrence) {
+      res.status(404).json({ error: 'Это повторение уже удалено. Обнови календарь.' })
+      return
+    }
     res.json({
       id,
       title: base.title,
@@ -662,6 +672,34 @@ export function createApi(db: DB) {
       color: base.color
     })
   })
+  // Exclude only this scheduled occurrence; leave the recurring parent task intact.
+  app.delete('/api/tasks/:id/occurrences/:date', async (req, res) => {
+    const id = String(req.params.id)
+    const date = String(req.params.date)
+    if (!idValid(id) || !validDate(date)) throw new Error('Некорректная дата или ID задачи.')
+    const task = (
+      await db.query(
+        `SELECT id,to_char(task_date,'YYYY-MM-DD') AS date,recurrence_type,interval_days,weekdays
+         FROM tasks WHERE id=$1`,
+        [id]
+      )
+    ).rows[0]
+    if (!task) {
+      res.status(404).json({ error: 'Задача уже удалена.' })
+      return
+    }
+    if (task.recurrence_type === 'none' || !occursOn(task, date))
+      throw new Error('Для этой даты нет повторения задачи.')
+    await db.query(
+      `INSERT INTO task_occurrences(task_id,occurrence_date,is_deleted,completed,failed,moved_to_date)
+       VALUES($1,$2::date,TRUE,FALSE,FALSE,NULL)
+       ON CONFLICT(task_id,occurrence_date) DO UPDATE
+       SET is_deleted=TRUE,completed=FALSE,failed=FALSE,moved_to_date=NULL`,
+      [id, date]
+    )
+    res.status(204).end()
+  })
+
   app.delete('/api/tasks/:id', async (req, res) => {
     const id = String(req.params.id)
     if (!idValid(id)) throw new Error('Некорректный ID.')
@@ -679,7 +717,7 @@ export function createApi(db: DB) {
         const outcomes = (
           await client.query(
             `SELECT to_char(COALESCE(moved_to_date,occurrence_date),'YYYY-MM-DD') AS date,completed,failed
-             FROM task_occurrences WHERE task_id=$1 AND (completed=TRUE OR failed=TRUE)`,
+             FROM task_occurrences WHERE task_id=$1 AND NOT is_deleted AND (completed=TRUE OR failed=TRUE)`,
             [id]
           )
         ).rows

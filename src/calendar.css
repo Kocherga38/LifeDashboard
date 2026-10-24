@@ -648,3 +648,12 @@
   .calendar-day-note-heading h2 { font-size: 17px; }
   .calendar-day-note-dialog textarea { min-height: 230px; }
 }
+
+/* Scope selector for deleting an individual recurring task occurrence. */
+.task-delete-dialog { width: min(100%, 460px); display: grid; gap: 14px; }
+.task-delete-dialog h2 { margin: 0; font-size: 19px; overflow-wrap: anywhere; }
+.task-delete-dialog p { margin: 0; line-height: 1.5; }
+.task-delete-options { display: grid; gap: 8px; }
+.task-delete-options button { width: 100%; text-align: center; }
+.task-delete-options .task-delete-all { color: #ff9e9e; border-color: #75484c; }
+.task-delete-options .task-delete-all:hover { background: #382428; }
